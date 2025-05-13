@@ -1,0 +1,19 @@
+[project]
+name = "rust-rl"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "datasets>=3.6.0",
+    "jupyterlab>=4.4.2",
+    "marimo>=0.13.7",
+    "matplotlib>=3.10.3",
+    "oxenai>=0.34.2",
+    "peft>=0.15.2",
+    "polars>=1.29.0",
+    "protobuf>=6.30.2",
+    "tqdm>=4.67.1",
+    "transformers>=4.51.3",
+    "trl>=0.17.0",
+]
