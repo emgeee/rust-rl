@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.13.7"
-app = marimo.App(width="medium")
+app = marimo.App(width="full")
 
 
 @app.cell
@@ -32,12 +32,14 @@ def _(RustTool, mo):
     should_add_tests = True
     num_rows = -1  # -1 == all
 
+    model_name = "Qwen3-4B"
+
     file_path_text = mo.ui.text(
-        value="./results/GRPO_85_2025-03-05_03-47-22_Qwen2.5-Coder-3B-Instruct/predictions_code_and_tests.parquet",
+        value=f"./results/{model_name}/predictions_code_and_tests.parquet",
         full_width=True,
     )
     output_path_text = mo.ui.text(
-        value="./results/GRPO_85_2025-03-05_03-47-22_Qwen2.5-Coder-3B-Instruct/results_code_and_tests.parquet",
+        value=f"./results/{model_name}/results_code_and_tests.parquet",
         full_width=True,
     )
 

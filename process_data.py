@@ -25,7 +25,16 @@ def _(RemoteRepo, os, oxen):
 
 
 @app.cell
-def _():
+def _(pl):
+    _df = pl.read_parquet("results/Qwen3-4B/predictions_code_and_tests.parquet")
+    _df
+    return
+
+
+@app.cell
+def _(pl):
+    _df = pl.read_parquet("cargo_test_passed_eval.parquet")
+    _df
     return
 
 
@@ -39,7 +48,8 @@ def _():
     from oxen import Repo
     from oxen.remote_repo import create_repo
 
-    return RemoteRepo, os, oxen
+    import polars as pl
+    return RemoteRepo, os, oxen, pl
 
 
 if __name__ == "__main__":

@@ -46,7 +46,13 @@ def _(mo):
     )
 
     run_form
-    return model_name, oxen_dataset_name, oxen_repo_name, run_form
+    return (
+        model_name,
+        oxen_dataset_name,
+        oxen_repo_name,
+        run_form,
+        use_gpu_checkbox,
+    )
 
 
 @app.cell
@@ -64,6 +70,7 @@ def _(
     pd,
     run_form,
     save_results_to_oxen,
+    use_gpu_checkbox,
 ):
     # If the button is not pressed, stop execution
     mo.stop(run_form.value is None)
@@ -78,13 +85,15 @@ def _(
         print(f"Already have {path}")
 
     device = "cpu"
-    # if use_gpu_checkbox.value:
-    #     device = "cuda"
+    if use_gpu_checkbox.value:
+        device = "cuda"
 
     model_name_str = model_name.value
     print(f"Downloading {model_name_str}")
+
     output_model_name = model_name_str.split("/")[1]
     output_path = f"results/{output_model_name}/predictions_code_and_tests.parquet"
+
     tokenizer = AutoTokenizer.from_pretrained(model_name_str)
     model = AutoModelForCausalLM.from_pretrained(model_name_str).to(device)
     streamer = TextStreamer(tokenizer)
