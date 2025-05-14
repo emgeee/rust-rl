@@ -14,7 +14,11 @@ dependencies = [
     "peft>=0.15.2",
     "polars>=1.29.0",
     "protobuf>=6.30.2",
+    "torch>=2.7.0",
+    "torchaudio>=2.7.0",
+    "torchvision>=0.22.0",
     "tqdm>=4.67.1",
     "transformers>=4.51.3",
     "trl>=0.17.0",
+    "unsloth>=2024.8",
 ]

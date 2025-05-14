@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.13.7"
+__generated_with = "0.13.8"
 app = marimo.App(width="medium")
 
 
@@ -20,8 +20,7 @@ def _(mo):
 def _(mo):
     model_name = mo.ui.text(value="Qwen/Qwen3-4B", full_width=True)
     oxen_repo_name = mo.ui.text(value="mgreen/qwen3-rust-finetune", full_width=True)
-    oxen_dataset_name = mo.ui.text(value="cargo_test_passed_eval.parquet", full_width=True)
-    use_gpu_checkbox = mo.ui.checkbox(label="Use GPU", value=True)
+    oxen_dataset_name = mo.ui.text(value="qwen3-rust-finetune/cargo_test_passed_eval.parquet", full_width=True)
 
     run_form = mo.md(
         """
@@ -31,28 +30,19 @@ def _(mo):
         {oxen_repo_name}
         Dataset Name
         {oxen_dataset_name}
-        {use_gpu_checkbox}
         """
     ).batch(
         oxen_repo_name=oxen_repo_name,
         oxen_dataset_name=oxen_dataset_name,
         model_name=model_name,
-        use_gpu_checkbox=use_gpu_checkbox,
     ).form(
         submit_button_label="Predict",
         bordered=False,
         show_clear_button=True,
         clear_button_label="Reset"
     )
-
     run_form
-    return (
-        model_name,
-        oxen_dataset_name,
-        oxen_repo_name,
-        run_form,
-        use_gpu_checkbox,
-    )
+    return model_name, oxen_dataset_name, oxen_repo_name, run_form
 
 
 @app.cell
@@ -70,7 +60,6 @@ def _(
     pd,
     run_form,
     save_results_to_oxen,
-    use_gpu_checkbox,
 ):
     # If the button is not pressed, stop execution
     mo.stop(run_form.value is None)
@@ -84,15 +73,14 @@ def _(
     else:
         print(f"Already have {path}")
 
-    device = "cpu"
-    if use_gpu_checkbox.value:
-        device = "cuda"
+    device = "mps" # Fastest on Mac right now
+    # device = "cuda"
 
     model_name_str = model_name.value
     print(f"Downloading {model_name_str}")
 
     output_model_name = model_name_str.split("/")[1]
-    output_path = f"results/{output_model_name}/predictions_code_and_tests.parquet"
+    output_path = f"qwen3-rust-finetune/results/{output_model_name}/temp_predictions_code_and_tests.parquet"
 
     tokenizer = AutoTokenizer.from_pretrained(model_name_str)
     model = AutoModelForCausalLM.from_pretrained(model_name_str).to(device)
@@ -220,8 +208,10 @@ def _():
     import pandas as pd
     from pathlib import Path
     from oxen import RemoteRepo, Workspace
+
     from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
     from transformers import pipeline
+
     return (
         AutoModelForCausalLM,
         AutoTokenizer,

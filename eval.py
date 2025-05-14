@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.13.7"
+__generated_with = "0.13.8"
 app = marimo.App(width="full")
 
 
@@ -12,7 +12,7 @@ def _():
     return mo, plt, uuid4
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
@@ -26,7 +26,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(RustTool, mo):
     tools = [RustTool("build"), RustTool("clippy"), RustTool("test")]
     should_add_tests = True
@@ -35,11 +35,11 @@ def _(RustTool, mo):
     model_name = "Qwen3-4B"
 
     file_path_text = mo.ui.text(
-        value=f"./results/{model_name}/predictions_code_and_tests.parquet",
+        value=f"./qwen3-rust-finetune/results/{model_name}/predictions_code_and_tests.parquet",
         full_width=True,
     )
     output_path_text = mo.ui.text(
-        value=f"./results/{model_name}/results_code_and_tests.parquet",
+        value=f"./qwen3-rust-finetune/results/{model_name}/results_code_and_tests.parquet",
         full_width=True,
     )
 

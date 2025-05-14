@@ -26,14 +26,14 @@ def _(RemoteRepo, os, oxen):
 
 @app.cell
 def _(pl):
-    _df = pl.read_parquet("results/Qwen3-4B/predictions_code_and_tests.parquet")
+    _df = pl.read_parquet("qwen3-rust-finetune/results/Qwen3-4B/predictions_code_and_tests.parquet")
     _df
     return
 
 
 @app.cell
 def _(pl):
-    _df = pl.read_parquet("cargo_test_passed_eval.parquet")
+    _df = pl.read_parquet("qwen3-rust-finetune/cargo_test_passed_eval.parquet")
     _df
     return
 
