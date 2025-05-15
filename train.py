@@ -19,7 +19,7 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _(os):
     # Parameters
     local_oxen_path = "qwen3-rust-finetune"
 
@@ -43,15 +43,13 @@ def _():
     use_peft = True
     use_gpu = True
 
+    os.environ["WANDB_PROJECT"]="rust-rl"
+    os.environ["WANDB_WATCH"]="false"
     return (
-        commit_every_value,
         model_name,
-        num_generations_value,
         output_dir,
         output_oxen_repo_name_value,
-        save_every_value,
         train_dataset_file,
-        use_gpu,
     )
 
 
@@ -70,8 +68,9 @@ def _(
     output_repo = RemoteRepo(output_oxen_repo_name_value)
     experiment = OxenExperiment(output_repo, model_name, output_dir)
     train_dataset = create_dataset(train_dataset_file, SYSTEM_PROMPT)
-    print(f"Running experiment in dir: {experiment.dir}")
-    return experiment, train_dataset
+    # train_dataset = train_dataset.select(range(10))
+    # print(f"Running experiment in dir: {experiment.dir}")
+    return (experiment,)
 
 
 @app.cell
@@ -160,54 +159,28 @@ def _(
                 score = 2.0 if cargo_results["test_passed"] else 0.0
             results.append(score)
         return results
-    return (
-        cargo_build_reward_func,
-        cargo_clippy_reward_func,
-        cargo_test_reward_func,
-        non_empty_reward_func,
-        test_block_count_reward_func,
-        tests_have_asserts_reward_func,
-    )
 
 
-@app.cell
-def training(
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    GRPOConfig,
-    GRPOTrainer,
-    LoraConfig,
-    OxenTrainerCallback,
-    cargo_build_reward_func,
-    cargo_clippy_reward_func,
-    cargo_test_reward_func,
-    commit_every_value,
-    experiment,
-    gc,
-    mo,
-    model_name,
-    non_empty_reward_func,
-    num_generations_value,
-    os,
-    save_every_value,
-    test_block_count_reward_func,
-    tests_have_asserts_reward_func,
-    torch,
-    train_dataset,
-    use_gpu,
-):
+    def test_reward_func(prompts, completions, **kwargs) -> list[float]:
+        return [1.0]
+
+    return
+
+
+app._unparsable_cell(
+    r"""
     # Training Code
-    print("Starting training...")
+    print(\"Starting training...\")
     gc.collect()
 
-    device = "cpu"
+    device = \"cpu\"
     device_map = None
     attn_implementation = None
     if use_gpu:
-        device = "cuda"
-        device_map = "auto"
-        attn_implementation = "flash_attention_2"
-    print(f"Using device: {device} -> '{use_gpu}'")
+        device = \"cuda\"
+        device_map = \"auto\"
+        attn_implementation = \"flash_attention_2\"
+    print(f\"Using device: {device} -> '{use_gpu}'\")
 
     # Load model
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -223,41 +196,46 @@ def training(
         r=16,
         lora_alpha=64,
         # Trying to get working with 16GB of VRAM
-        target_modules="all-linear",
-        # target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "down_proj", "gate_proj"],
-        # target_modules=["q_proj", "k_proj", "v_proj"],
-        task_type="CAUSAL_LM",
+        target_modules=\"all-linear\",
+        # target_modules=[\"q_proj\", \"k_proj\", \"v_proj\", \"o_proj\", \"up_proj\", \"down_proj\", \"gate_proj\"],
+        # target_modules=[\"q_proj\", \"k_proj\", \"v_proj\"],
+        task_type=\"CAUSAL_LM\",
         lora_dropout=0.05,
     )
 
     model.enable_input_require_grads()
+    model.train()
+    print(f\"model in training mode: {model.training}\")
 
-    with open(os.path.join(experiment.dir, "peft.txt"), "w") as f:
+    with open(os.path.join(experiment.dir, \"peft.txt\"), \"w\") as f:
         trainable_params = 0
         all_param = 0
         for name, param in model.named_parameters():
             all_param += param.numel()
             if param.requires_grad:
                 trainable_params += param.numel()
-                f.write(f"{name}\t{param.numel()}\n")
-        param_str = f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
+                f.write(f\"{name}\t{param.numel()}\n\")
+        param_str = f\"trainable params: {trainable_params} || all params: {all_param} || trainable %: {100 * trainable_params / all_param}\"
         print(param_str)
         f.write(param_str)
 
     batch_size = 1
     num_examples = len(train_dataset)
     num_batches = num_examples / batch_size
-    print(f"num_examples: {num_examples}, num_batches: {num_batches}")
+    print(f\"num_examples: {num_examples}, num_batches: {num_batches}\")
 
     with mo.status.progress_bar(total=num_batches) as bar:
         training_args = GRPOConfig(
             output_dir=experiment.dir,
+            report_to=\"wandb\",
+            num_generations=8, # default value is 8, here for reference
             learning_rate=5e-6,
+            # learning_rate=5e-5,
             adam_beta1=0.9,
             adam_beta2=0.99,
             weight_decay=0.1,
             warmup_ratio=0.1,
-            lr_scheduler_type="cosine",
+            lr_scheduler_type=\"cosine\",
             logging_steps=1,
             bf16=True,
             per_device_train_batch_size=batch_size,
@@ -270,12 +248,14 @@ def training(
             save_total_limit=1,
             max_grad_norm=0.1,
             log_on_each_node=False,
-            optim="adamw_torch",
+            optim=\"adamw_torch\",
+            label_names=[],
         )
         trainer = GRPOTrainer(
             model=model,
             processing_class=tokenizer,
             reward_funcs=[
+                # test_reward_func,
                 cargo_build_reward_func,  # 1.0 if passes cargo build else 0.0
                 cargo_clippy_reward_func,  # 1.0 if passes cargo clippy else 0.0
                 cargo_test_reward_func,  # 2.0 if passes cargo test else 0.0
@@ -293,7 +273,9 @@ def training(
             ],
         )
         trainer.train()
-    return
+    """,
+    name="training"
+)
 
 
 @app.cell
@@ -509,15 +491,16 @@ def _(OxenExperiment, TrainerCallback, Workspace, datetime, json, os):
             super().__init__()
 
         def on_log(self, args, state, control, logs=None, **kwargs):
-            print("on_log.logs")
-            # print(logs)
+            # print("on_log.logs")
 
             # add timestamp to logs
             logs['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # print(logs)
 
             # save logs to file
             with open(self.log_file, "a") as f:
                 f.write(json.dumps(logs) + "\n")
+            # print("------------------------------> Done on_log")
 
         def on_step_end(self, args, state, control, **kwargs):
             print(f"on_step_end {state.global_step}")
@@ -533,11 +516,11 @@ def _(OxenExperiment, TrainerCallback, Workspace, datetime, json, os):
                     self.workspace.commit(f"step {state.global_step} end GRPO")
                 except Exception as e:
                     print(e)
-    return (OxenTrainerCallback,)
+    return
 
 
 @app.cell
-def _(Any, Callable, Path, datetime, functools, json, os, time):
+def _(Any, Callable, Path, datetime, functools, json, time):
     class OxenExperiment():
         """
         An experiment helps log the experiment to an oxen repository,
@@ -547,18 +530,22 @@ def _(Any, Callable, Path, datetime, functools, json, os, time):
             self.repo = repo
             self.output_dir = output_dir
 
-            branches = repo.branches()
             experiment_number = 0
-            for branch in branches:
-                if branch.name.startswith(f"{experiment_type}_"):
-                    experiment_number += 1
+            # branches = repo.branches()
+            # for branch in branches:
+            #     if branch.name.startswith(f"{experiment_type}_"):
+            #         experiment_number += 1
             self.experiment_number = experiment_number
             short_model_name = model_name.split('/')[-1]
             timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            self.name = f"{experiment_type}_{experiment_number}_{timestamp}_{short_model_name}"
-            self.dir = Path(os.path.join(self.output_dir, self.name))
-            # Create the output directory if it doesn't exist
-            os.makedirs(self.dir, exist_ok=True)
+            # self.name = f"{experiment_type}_{experiment_number}_{timestamp}_{short_model_name}"
+
+            self.name = f"{experiment_type}_{short_model_name}"
+            self.dir = Path(self.output_dir) / self.name
+
+            # if self.dir.exists():
+                # shutil.rmtree(self.dir)
+            self.dir.mkdir(parents=True, exist_ok=True)
 
             print(f"Creating experiment branch {self.name}")
             repo.create_checkout_branch(self.name)
@@ -611,21 +598,23 @@ def _(Any, Callable, Path, datetime, functools, json, os, time):
     return (OxenExperiment,)
 
 
-@app.function
-def transform_dataset(system_prompt, dataset, tokenizer):
-    data = dataset.map(lambda x: {
-        'messages': [
-            {'role': 'system', 'content': system_prompt},
-            {'role': 'user', 'content': x['rust_prompt']},
-            {'role': 'assistant', 'content': x['rust_code']}
-        ]
-    })
-    tokenized_dataset = data.map(
-        lambda x: tokenizer([tokenizer.apply_chat_template(conv, tokenize=False) for conv in x['messages']], truncation=True, padding=True),
-        batched=True,
-        remove_columns=data.column_names
-    )
-    return tokenized_dataset
+@app.cell
+def _():
+    # def transform_dataset(system_prompt, dataset, tokenizer):
+    #     data = dataset.map(lambda x: {
+    #         'messages': [
+    #             {'role': 'system', 'content': system_prompt},
+    #             {'role': 'user', 'content': x['rust_prompt']},
+    #             {'role': 'assistant', 'content': x['rust_code']}
+    #         ]
+    #     })
+    #     tokenized_dataset = data.map(
+    #         lambda x: tokenizer([tokenizer.apply_chat_template(conv, tokenize=False) for conv in x['messages']], truncation=True, padding=True),
+    #         batched=True,
+    #         remove_columns=data.column_names
+    #     )
+    #     return tokenized_dataset
+    return
 
 
 @app.cell
@@ -639,7 +628,7 @@ def _(Dataset, load_dataset):
             ],
             "test_list": x['rust_test_list']
         })
-        print(data)
+        # print(data)
         return data
     return (create_dataset,)
 
@@ -703,22 +692,18 @@ def _():
     import subprocess
     import shutil
     import time
+
+    import wandb
     return (
         Any,
-        AutoModelForCausalLM,
-        AutoTokenizer,
         Callable,
         Dataset,
-        GRPOConfig,
-        GRPOTrainer,
-        LoraConfig,
         Path,
         RemoteRepo,
         TrainerCallback,
         Workspace,
         datetime,
         functools,
-        gc,
         json,
         load_dataset,
         mo,
@@ -727,7 +712,6 @@ def _():
         shutil,
         subprocess,
         time,
-        torch,
         uuid4,
     )
 

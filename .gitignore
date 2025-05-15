@@ -11,3 +11,4 @@ wheels/
 outputs/
 __marimo__/
 qwen3-rust-finetune/
+wandb

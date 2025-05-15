@@ -165,10 +165,78 @@ app._unparsable_cell(
     print(f\"score: {r.get('score')}, func: {response_contains_more_than_non_empty_line(completion)}\")
     print(completion)
         # print(r.get('completion'))
-    
+
     """,
     name="_"
 )
+
+
+@app.cell
+def _(Dataset, SYSTEM_PROMPT, load_dataset):
+    def create_dataset(path, system_prompt) -> Dataset:
+        data = load_dataset("parquet", data_files={"train": path})["train"]
+        data = data.map(
+            lambda x: {
+                "prompt": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": x["rust_prompt"]},
+                ],
+                "test_list": x["rust_test_list"],
+            }
+        )
+        # print(data)
+        return data
+
+
+    local_oxen_path = "qwen3-rust-finetune"
+    train_dataset_file = f"{local_oxen_path}/cargo_test_passed_train.parquet"
+
+
+    ds = create_dataset(train_dataset_file, SYSTEM_PROMPT)
+    ds
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell
+def _():
+    SYSTEM_PROMPT = """You are a pragmatic Rust programmer who enjoys test driven development. Given the following question, write a Rust function to complete the task. Make the code simple and easy to understand. The code should pass `cargo build` and `cargo clippy`. Try to limit library usage to the standard library std. Be careful with your types, and try to limit yourself to the basic built in types and standard library functions. When writing the function you can think through how to solve the problem and perform reasoning in the comments above the function.
+
+    Then write unit tests for the function you defined. Write multiple unit tests for the function. The tests should be a simple line delimited list of assert! or assert_eq! statements. When writing the unit tests you can have comments specifying what you are testing in plain english. The tests should use super::*.
+
+
+    An example output should look like the following:
+
+    ```rust
+    /// Reasoning goes here
+    /// and can be multi-line
+    fn add_nums(x: i32, y: i32) -> i32 {
+      x + y
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn test_add_nums() {
+            // Test adding positive numbers
+            assert_eq!(add_nums(4, 2), 6);
+            // Test adding a positive and negative number
+            assert_eq!(add_nums(4, -2), 2);
+            // Test adding two negative numbers
+            assert_eq!(add_nums(-12, -1), -13);
+        }
+    }
+    ```
+
+    Make sure to only respond with a single  ```rust``` block. The unit tests must be defined inside the mod tests {} module. Make sure to import any standard library modules that you need. Do not add a main function.
+    """
+    return (SYSTEM_PROMPT,)
 
 
 @app.cell
@@ -178,13 +246,16 @@ def _():
     import json
     import re
 
+    from datasets import load_dataset, Dataset
+
+
     import oxen
     from oxen import RemoteRepo
     from oxen import Repo
     from oxen.remote_repo import create_repo
 
     import polars as pl
-    return RemoteRepo, os, oxen, pl, re
+    return Dataset, RemoteRepo, load_dataset, os, oxen, pl, re
 
 
 if __name__ == "__main__":

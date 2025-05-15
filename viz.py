@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.13.9"
-app = marimo.App(width="medium")
+app = marimo.App(width="full")
 
 
 @app.cell
@@ -10,16 +10,17 @@ def _():
     import pandas as pd
     import json
     import matplotlib.pyplot as plt
+    from datetime import datetime
     from typing import Optional
     from oxen import RemoteRepo
     import os
     from pathlib import Path
-    return Optional, Path, json, mo, pd, plt
+    return Optional, Path, datetime, json, mo, pd, plt
 
 
 @app.cell
 def _():
-    experiment = 'GRPO_18_2025-05-15_01-15-52_Qwen2.5-Coder-1.5B-Instruct'
+    experiment = 'GRPO_Qwen2.5-Coder-1.5B-Instruct'
     results_dir = 'qwen3-rust-finetune/outputs'
     return experiment, results_dir
 
@@ -132,8 +133,59 @@ def _(Optional, json, pd, plt):
 
 
 @app.cell
-def _():
+def _(experiment, plot_metrics_from_jsonl):
+    plot_metrics_from_jsonl(f'qwen3-rust-finetune/outputs/{experiment}/logs.jsonl', metrics=["loss", "reward", "learning_rate"])
     return
+
+
+@app.cell
+def _(datetime, json, plt):
+    def plot_metrics_from_jsonl(
+        jsonl_path,
+        metrics=None,
+        time_key="timestamp",
+        time_format="%Y-%m-%d %H:%M:%S",
+    ):
+        """
+        Reads a JSONL file and plots specified metrics over time.
+
+        :param jsonl_path: Path to the .jsonl file.
+        :param metrics: List of metric keys to plot. If None, plots all numeric fields except the time field.
+        :param time_key: Key in JSON entries representing the timestamp.
+        :param time_format: Format string for parsing timestamps.
+        """
+        # Load entries
+        entries = []
+        with open(jsonl_path, "r") as f:
+            for line in f:
+                entries.append(json.loads(line))
+
+        # Parse times
+        times = [datetime.strptime(e[time_key], time_format) for e in entries]
+
+        # Determine which metrics to plot
+        sample = entries[0]
+        if metrics is None:
+            metrics = [
+                k
+                for k, v in sample.items()
+                if k != time_key and isinstance(v, (int, float))
+            ]
+
+          # Plot all metrics side-by-side
+        n = len(metrics)
+        fig, axes = plt.subplots(1, n, figsize=(4*n, 4), sharex=True)
+        for ax, metric in zip(axes, metrics):
+            vals = [e.get(metric) for e in entries]
+            ax.plot(times, vals)
+            ax.set_title(metric)
+            ax.set_xlabel('Time')
+            ax.set_ylabel(metric)
+        fig.tight_layout()
+        plt.show()
+    
+        print(sample.keys())
+    return (plot_metrics_from_jsonl,)
 
 
 if __name__ == "__main__":
