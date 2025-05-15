@@ -1,7 +1,7 @@
 import marimo
 
-__generated_with = "0.13.7"
-app = marimo.App(width="medium")
+__generated_with = "0.13.9"
+app = marimo.App(width="full")
 
 
 @app.cell(hide_code=True)
@@ -18,267 +18,237 @@ def _(mo):
     return
 
 
-@app.cell(hide_code=True)
-def _(mo):
-    # Define all the inputs
-    oxen_repo_name = mo.ui.text(value="ox/Rust", full_width=True)
-    output_oxen_repo_name = mo.ui.text(value="mgreen/rust-rl", full_width=True)
-    model_name_ui = mo.ui.text(value="Qwen/Qwen2.5-Coder-1.5B-Instruct", full_width=True)
-    train_file_ui = mo.ui.text(value="cargo_test_passed_train.parquet", full_width=True)
-    save_every = mo.ui.number(label="Save Every", value=100)
-    commit_every = mo.ui.number(label="Commit Every", value=100)
-    num_generations = mo.ui.number(label="Num Generations", value=4)
-    use_peft_checkbox = mo.ui.checkbox(label="Use PEFT", value=True)
-    use_gpu_checkbox = mo.ui.checkbox(label="Use GPU", value=False)
+@app.cell
+def _():
+    # Parameters
+    local_oxen_path = "qwen3-rust-finetune"
 
+    oxen_repo_name_value = "ox/Rust"
+    output_oxen_repo_name_value = "mgreen/rust-rl"
 
-    run_form = mo.md(
-        """
-        Base Model Name
-        {model_name_ui}
+    output_dir = f"{local_oxen_path}/outputs"
 
-        Dataset Repo Name
-        {oxen_repo_name}
+    # model_name = "Qwen/Qwen3-4B"
+    model_name = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
 
-        Train Dataset (parquet)
-        {train_file_ui}
+    train_dataset_file = f"{local_oxen_path}/cargo_test_passed_train.parquet"
 
-        Output Repo Name
-        {output_oxen_repo_name}
+    # repo = RemoteRepo(oxen_repo_name_value)
+    # if not os.path.exists(train_dataset_file):
+    #     repo.download(train_dataset_file)
 
-        {save_every}
-        {commit_every}
-        {num_generations}
-        {use_peft_checkbox}
-        {use_gpu_checkbox}
-        """
-    ).batch(
-        oxen_repo_name=oxen_repo_name,
-        output_oxen_repo_name=output_oxen_repo_name,
-        model_name_ui=model_name_ui,
-        train_file_ui=train_file_ui,
-        save_every=save_every,
-        commit_every=commit_every,
-        num_generations=num_generations,
-        use_peft_checkbox=use_peft_checkbox,
-        use_gpu_checkbox=use_gpu_checkbox,
-    ).form(
-        submit_button_label="Train",
-        bordered=False,
-        show_clear_button=True,
-        clear_button_label="Reset"
-    )
+    save_every_value = 100
+    commit_every_value = 100
+    num_generations_value = 4
+    use_peft = True
+    use_gpu = True
 
-    run_form
     return (
-        commit_every,
-        model_name_ui,
-        num_generations,
-        output_oxen_repo_name,
-        oxen_repo_name,
-        run_form,
-        save_every,
-        train_file_ui,
-        use_gpu_checkbox,
-        use_peft_checkbox,
+        commit_every_value,
+        model_name,
+        num_generations_value,
+        output_dir,
+        output_oxen_repo_name_value,
+        save_every_value,
+        train_dataset_file,
+        use_gpu,
     )
 
 
-@app.cell(hide_code=True)
-def _(mo, oxen_repo_name, use_gpu_checkbox):
-    mo.vstack([
-        mo.md(f"🐂 {oxen_repo_name.value}"),
-        mo.md(f"Running experiment on gpu: {use_gpu_checkbox.value}")
-    ])
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""# Training Code""")
-    return
-
-
-@app.cell(hide_code=True)
+@app.cell
 def _(
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    GRPOConfig,
-    GRPOTrainer,
-    LoraConfig,
     OxenExperiment,
-    OxenTrainerCallback,
     RemoteRepo,
-    RustTool,
     SYSTEM_PROMPT,
-    commit_every,
     create_dataset,
+    model_name,
+    output_dir,
+    output_oxen_repo_name_value,
+    train_dataset_file,
+):
+    # Setup the Experiment
+    output_repo = RemoteRepo(output_oxen_repo_name_value)
+    experiment = OxenExperiment(output_repo, model_name, output_dir)
+    train_dataset = create_dataset(train_dataset_file, SYSTEM_PROMPT)
+    print(f"Running experiment in dir: {experiment.dir}")
+    return experiment, train_dataset
+
+
+@app.cell
+def _(
+    RustTool,
+    experiment,
     extract_rust_code,
     extract_test_code,
-    gc,
-    get_peft_model,
-    mo,
-    model_name_ui,
-    num_generations,
-    os,
-    output_oxen_repo_name,
-    oxen_repo_name,
     response_contains_asserts,
     response_contains_more_than_non_empty_line,
     response_contains_one_code_block,
     response_contains_one_test_block,
-    run_form,
-    save_every,
     setup_and_test_rust_project,
-    torch,
-    train_file_ui,
-    use_gpu_checkbox,
-    use_peft_checkbox,
 ):
-    print(f"Checkbox val: {use_gpu_checkbox.value}")
-
-    # If the button is not pressed, stop execution
-    mo.stop(
-        run_form.value is None
-    )
-
-    print("Starting training...")
-    # Clean up memory between runs
-    gc.collect()
-
-    # Setup the Experiment
-    model_name = model_name_ui.value
-
-    output_dir = "outputs"
-    # repo = RemoteRepo("ox/Rust-R1", host="localhost:3001", scheme="http")
-    repo = RemoteRepo(oxen_repo_name.value)
-    train_dataset_file = train_file_ui.value
-    if not os.path.exists(train_dataset_file):
-        repo.download(train_dataset_file)
-
-    output_repo = RemoteRepo(output_oxen_repo_name.value)
-    experiment = OxenExperiment(output_repo, model_name, output_dir)
-    train_dataset = create_dataset(train_dataset_file, SYSTEM_PROMPT)
-    print(f"Running experiment in dir: {experiment.dir}")
-
+    # Define reward functions
     @experiment.log(f"non_empty_rewards.jsonl")
     def non_empty_reward_func(prompts, completions, **kwargs) -> list[float]:
         contents = [completion[0]["content"] for completion in completions]
         return [response_contains_more_than_non_empty_line(c) for c in contents]
 
+
     @experiment.log(f"tests_have_asserts_rewards.jsonl")
-    def tests_have_asserts_reward_func(prompts, completions, **kwargs) -> list[float]:
+    def tests_have_asserts_reward_func(
+        prompts, completions, **kwargs
+    ) -> list[float]:
         contents = [completion[0]["content"] for completion in completions]
         return [response_contains_asserts(c) for c in contents]
 
+
     @experiment.log(f"test_block_count_rewards.jsonl")
-    def test_block_count_reward_func(prompts, completions, **kwargs) -> list[float]:
+    def test_block_count_reward_func(
+        prompts, completions, **kwargs
+    ) -> list[float]:
         contents = [completion[0]["content"] for completion in completions]
         return [response_contains_one_test_block(c) for c in contents]
 
+
     @experiment.log(f"code_block_count_rewards.jsonl")
-    def code_block_count_reward_func(prompts, completions, **kwargs) -> list[float]:
+    def code_block_count_reward_func(
+        prompts, completions, **kwargs
+    ) -> list[float]:
         contents = [completion[0]["content"] for completion in completions]
         return [response_contains_one_code_block(c) for c in contents]
 
+
     @experiment.log(f"cargo_build_rewards.jsonl")
     def cargo_build_reward_func(prompts, completions, **kwargs) -> list[float]:
-        # Extract the answers from the completions
-        responses = [completion[0]['content'] for completion in completions]
+        responses = [completion[0]["content"] for completion in completions]
         extracted_answers = [extract_rust_code(r) for r in responses]
         results = []
         for i, answer in enumerate(extracted_answers):
-            data = {'rust_code': answer}
+            data = {"rust_code": answer}
             tools = [RustTool("build")]
             cargo_results = setup_and_test_rust_project(data, tools)
-            score = 1.0 if cargo_results['build_passed'] else 0.0
+            score = 1.0 if cargo_results["build_passed"] else 0.0
             results.append(score)
         return results
+
 
     @experiment.log(f"cargo_clippy_rewards.jsonl")
     def cargo_clippy_reward_func(prompts, completions, **kwargs) -> list[float]:
-        # Extract the answers from the completions
-        responses = [completion[0]['content'] for completion in completions]
+        responses = [completion[0]["content"] for completion in completions]
         extracted_answers = [extract_rust_code(r) for r in responses]
         results = []
         for i, answer in enumerate(extracted_answers):
-            data = {'rust_code': answer}
+            data = {"rust_code": answer}
             tools = [RustTool("clippy")]
             cargo_results = setup_and_test_rust_project(data, tools)
-            score = 1.0 if cargo_results['clippy_passed'] else 0.0
+            score = 1.0 if cargo_results["clippy_passed"] else 0.0
             results.append(score)
         return results
 
+
     @experiment.log(f"cargo_test_rewards.jsonl")
     def cargo_test_reward_func(prompts, completions, **kwargs) -> list[float]:
-        # Extract the answers from the completions
-        responses = [completion[0]['content'] for completion in completions]
+        responses = [completion[0]["content"] for completion in completions]
         extracted_codes = [extract_rust_code(r) for r in responses]
         extracted_tests = [extract_test_code(c) for c in extracted_codes]
         results = []
         for i, answer in enumerate(extracted_codes):
             score = 0.0
             if extracted_tests[i]:
-                data = {
-                    'rust_code': answer
-                }
+                data = {"rust_code": answer}
                 tools = [RustTool("test")]
                 cargo_results = setup_and_test_rust_project(data, tools)
-                # Let's give some extra credit for tests passing compared to the other rewards
-                score = 2.0 if cargo_results['test_passed'] else 0.0
+                score = 2.0 if cargo_results["test_passed"] else 0.0
             results.append(score)
         return results
+    return (
+        cargo_build_reward_func,
+        cargo_clippy_reward_func,
+        cargo_test_reward_func,
+        non_empty_reward_func,
+        test_block_count_reward_func,
+        tests_have_asserts_reward_func,
+    )
 
-    # Instantiate the model on the CPU or GPU
+
+@app.cell
+def training(
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    GRPOConfig,
+    GRPOTrainer,
+    LoraConfig,
+    OxenTrainerCallback,
+    cargo_build_reward_func,
+    cargo_clippy_reward_func,
+    cargo_test_reward_func,
+    commit_every_value,
+    experiment,
+    gc,
+    mo,
+    model_name,
+    non_empty_reward_func,
+    num_generations_value,
+    os,
+    save_every_value,
+    test_block_count_reward_func,
+    tests_have_asserts_reward_func,
+    torch,
+    train_dataset,
+    use_gpu,
+):
+    # Training Code
+    print("Starting training...")
+    gc.collect()
+
     device = "cpu"
     device_map = None
     attn_implementation = None
-    if use_gpu_checkbox.value:
+    if use_gpu:
         device = "cuda"
         device_map = "auto"
         attn_implementation = "flash_attention_2"
-    print(f"Using device: {device} -> '{use_gpu_checkbox.value}'")
+    print(f"Using device: {device} -> '{use_gpu}'")
 
+    # Load model
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.bfloat16,
         # attn_implementation=attn_implementation,
-        device_map=device_map
+        device_map=device_map,
     ).to(device)
 
-    peft_config = None
-    if use_peft_checkbox.value:
-        peft_config = LoraConfig(
-            r=16,
-            lora_alpha=64,
-            # Trying to get working with 16GB of VRAM
-            target_modules="all-linear",
-            # target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "down_proj", "gate_proj"],
-            # target_modules=["q_proj", "k_proj", "v_proj"],
-            task_type="CAUSAL_LM",
-            lora_dropout=0.05,
-        )
-        model = get_peft_model(model, peft_config)
+    # peft_config = None
+    peft_config = LoraConfig(
+        r=16,
+        lora_alpha=64,
+        # Trying to get working with 16GB of VRAM
+        target_modules="all-linear",
+        # target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "down_proj", "gate_proj"],
+        # target_modules=["q_proj", "k_proj", "v_proj"],
+        task_type="CAUSAL_LM",
+        lora_dropout=0.05,
+    )
 
     model.enable_input_require_grads()
 
-    with open(os.path.join(experiment.dir, "peft.txt"), 'w') as f:
+    with open(os.path.join(experiment.dir, "peft.txt"), "w") as f:
         trainable_params = 0
         all_param = 0
         for name, param in model.named_parameters():
             all_param += param.numel()
             if param.requires_grad:
                 trainable_params += param.numel()
-                f.write(f"{name}\t{param.numel()}\n")  # Should show LoRA parameters
+                f.write(f"{name}\t{param.numel()}\n")
         param_str = f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
         print(param_str)
         f.write(param_str)
 
-
     batch_size = 1
     num_examples = len(train_dataset)
     num_batches = num_examples / batch_size
+    print(f"num_examples: {num_examples}, num_batches: {num_batches}")
+
     with mo.status.progress_bar(total=num_batches) as bar:
         training_args = GRPOConfig(
             output_dir=experiment.dir,
@@ -287,36 +257,40 @@ def _(
             adam_beta2=0.99,
             weight_decay=0.1,
             warmup_ratio=0.1,
-            lr_scheduler_type='cosine',
+            lr_scheduler_type="cosine",
             logging_steps=1,
             bf16=True,
             per_device_train_batch_size=batch_size,
             gradient_accumulation_steps=4,
-            num_generations=num_generations.value,
+            num_generations=num_generations_value,
             max_prompt_length=256,
             max_completion_length=786,
             num_train_epochs=1,
-            save_steps=save_every.value,
+            save_steps=save_every_value,
             save_total_limit=1,
             max_grad_norm=0.1,
             log_on_each_node=False,
-            optim="adamw_torch"
+            optim="adamw_torch",
         )
         trainer = GRPOTrainer(
             model=model,
             processing_class=tokenizer,
             reward_funcs=[
-                cargo_build_reward_func, # 1.0 if passes cargo build else 0.0
-                cargo_clippy_reward_func, # 1.0 if passes cargo clippy else 0.0
-                cargo_test_reward_func, # 3.0 if passes cargo test else 0.0
-                non_empty_reward_func, # 1.0 if the code is not empty else 0.0
-                test_block_count_reward_func, # 1.0 if there is a test block else 0.0
-                tests_have_asserts_reward_func # 1.0 if there are assert statements in the test else 0.0
+                cargo_build_reward_func,  # 1.0 if passes cargo build else 0.0
+                cargo_clippy_reward_func,  # 1.0 if passes cargo clippy else 0.0
+                cargo_test_reward_func,  # 2.0 if passes cargo test else 0.0
+                non_empty_reward_func,  # 1.0 if the code is not empty else 0.0
+                test_block_count_reward_func,  # 1.0 if there is a test block else 0.0
+                tests_have_asserts_reward_func,  # 1.0 if there are assert statements in the test else 0.0
             ],
             args=training_args,
             train_dataset=train_dataset,
-            peft_config=peft_config, # None if !use_peft_checkbox.value
-            callbacks=[OxenTrainerCallback(experiment, bar, commit_every=commit_every.value)],
+            peft_config=peft_config,
+            callbacks=[
+                OxenTrainerCallback(
+                    experiment, bar, commit_every=commit_every_value
+                )
+            ],
         )
         trainer.train()
     return
@@ -347,8 +321,8 @@ def _(subprocess):
 
 
 @app.cell
-def _(Optional, re):
-    def extract_regex(text: str, pattern: str) -> Optional[str]:
+def _(re):
+    def extract_regex(text: str, pattern: str) -> str | None:
         # Use re.DOTALL to make '.' match newlines as well
         match = re.search(pattern, text, re.DOTALL)
 
@@ -356,61 +330,44 @@ def _(Optional, re):
             return match.group(1)
         else:
             return None
-    return (extract_regex,)
 
 
-@app.function
-def extract_code_regex():
-    return r'```rust\n(.*?)\n```'
+    def extract_code_regex():
+        return r"```rust\n(.*?)\n```"
 
 
-@app.function
-def extract_test_regex():
-    return r'(#\[cfg\(test\)\]\s*mod\s+tests\s*\{.*?\})'
+    def extract_test_regex():
+        return r"(#\[cfg\(test\)\]\s*mod\s+tests\s*\{.*?\})"
 
 
-@app.cell
-def _(extract_regex):
     def extract_rust_code(response: str) -> str:
         code = extract_regex(response, extract_code_regex())
         if code:
             return code
         else:
             return response
-    return (extract_rust_code,)
 
 
-@app.cell
-def _(extract_regex):
     def extract_test_code(response: str) -> str:
         return extract_regex(response, extract_test_regex())
-    return (extract_test_code,)
 
 
-@app.cell
-def _(extract_rust_code):
-    def response_contains_one_code_block(response: str) -> bool:
+    def response_contains_one_code_block(response: str) -> float:
         # It has to have a ```rust``` block and a fn
         if extract_rust_code(response) and "fn " in response:
             return 0.5
         else:
             return 0.0
-    return (response_contains_one_code_block,)
 
 
-@app.cell
-def _(extract_test_code):
-    def response_contains_one_test_block(response: str) -> bool:
+    def response_contains_one_test_block(response: str) -> float:
         if extract_test_code(response):
             return 0.5
         else:
             return 0.0
-    return (response_contains_one_test_block,)
 
 
-@app.cell
-def _(extract_test_code):
-    def response_contains_asserts(response: str) -> bool:
+    def response_contains_asserts(response: str) -> float:
         test_code = extract_test_code(response)
         if not test_code:
             return 0.0
@@ -423,17 +380,13 @@ def _(extract_test_code):
         if len(unique_asserts) >= 4:
             return 1.0
         return 0.25 * len(unique_asserts)
-    return (response_contains_asserts,)
 
 
-@app.cell
-def _(
-    extract_rust_code,
-    response_contains_one_code_block,
-    response_contains_one_test_block,
-):
-    def response_contains_more_than_non_empty_line(response: str) -> bool:
-        if not (response_contains_one_code_block(response) and response_contains_one_test_block(response)):
+    def response_contains_more_than_non_empty_line(response: str) -> float:
+        if not (
+            response_contains_one_code_block(response)
+            and response_contains_one_test_block(response)
+        ):
             return 0.0
 
         code = extract_rust_code(response)
@@ -446,36 +399,50 @@ def _(
                 continue
             num_non_empty += 1
         return 1.0 if num_non_empty >= 3 else 0.0
-    return (response_contains_more_than_non_empty_line,)
 
 
-@app.function
-def template_rs_file():
-    return """
-#![allow(dead_code)]
-// {code}
+    def template_rs_file():
+        return """
+    #![allow(dead_code)]
+    // {code}
 
-// Need basic main function for the code to compile
-fn main() {
-  println!("Hello World");
-}
-"""
+    // Need basic main function for the code to compile
+    fn main() {
+      println!("Hello World");
+    }
+    """
 
 
-@app.function
-def cargo_toml_file():
-    return """
-[package]
-name = "rust-program"
-version = "0.1.0"
-edition = "2021"
+    def cargo_toml_file():
+        return """
+    [package]
+    name = "rust-program"
+    version = "0.1.0"
+    edition = "2021"
 
-[dependencies]
-"""
+    [dependencies]
+    """
+    return (
+        cargo_toml_file,
+        extract_rust_code,
+        extract_test_code,
+        response_contains_asserts,
+        response_contains_more_than_non_empty_line,
+        response_contains_one_code_block,
+        response_contains_one_test_block,
+        template_rs_file,
+    )
 
 
 @app.cell
-def _(Path, extract_rust_code, shutil, uuid4):
+def _(
+    Path,
+    cargo_toml_file,
+    extract_rust_code,
+    shutil,
+    template_rs_file,
+    uuid4,
+):
     def setup_and_test_rust_project(row, tools):
         """
         Sets up a Rust project from template and runs tests for a single row of data
@@ -509,6 +476,7 @@ def _(Path, extract_rust_code, shutil, uuid4):
         for tool in tools:
             results = tool.run(results, project_dir)
 
+        print("----> Tool Results")
         for k,v in results.items():
             print("")
             print(k)
@@ -719,7 +687,7 @@ def _():
     from datasets import load_dataset, Dataset
     from transformers import AutoTokenizer, AutoModelForCausalLM, TrainerCallback
     from trl import GRPOConfig, GRPOTrainer
-    from peft import LoraConfig, get_peft_model
+    from peft import LoraConfig, get_peft_model, PeftModel
     from oxen import RemoteRepo, Workspace
     import os
     import re
@@ -744,7 +712,6 @@ def _():
         GRPOConfig,
         GRPOTrainer,
         LoraConfig,
-        Optional,
         Path,
         RemoteRepo,
         TrainerCallback,
@@ -752,7 +719,6 @@ def _():
         datetime,
         functools,
         gc,
-        get_peft_model,
         json,
         load_dataset,
         mo,

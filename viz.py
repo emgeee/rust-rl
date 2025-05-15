@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.14"
+__generated_with = "0.13.9"
 app = marimo.App(width="medium")
 
 
@@ -14,13 +14,13 @@ def _():
     from oxen import RemoteRepo
     import os
     from pathlib import Path
-    return Optional, Path, RemoteRepo, json, mo, os, pd, plt
+    return Optional, Path, json, mo, pd, plt
 
 
 @app.cell
 def _():
-    experiment = 'GRPO_94_2025-03-05_15-57-16_Qwen2.5-Coder-1.5B-Instruct'
-    results_dir = 'results'
+    experiment = 'GRPO_18_2025-05-15_01-15-52_Qwen2.5-Coder-1.5B-Instruct'
+    results_dir = 'qwen3-rust-finetune/outputs'
     return experiment, results_dir
 
 
@@ -55,17 +55,18 @@ def _(experiment, plot_file):
 
 
 @app.cell
-def _(Path, RemoteRepo, mo, os, plot_rolling_average, results_dir):
+def _(Path, mo, plot_rolling_average, results_dir):
     def plot_file(experiment: str, filename: str, title: str):
-        repo = RemoteRepo("ox/Rust")
-        path = Path(f"outputs/{experiment}/{filename}")
-        print(f"Downloading {path.name}")
+        # repo = RemoteRepo("ox/Rust")
+        # path = Path(f"outputs/{experiment}/{filename}")
+        # print(f"Downloading {path.name}")
 
         # make the results dir if it doesn't exist
-        os.makedirs(results_dir, exist_ok=True)
-    
-        output_file = Path(results_dir) / path.name
-        repo.download(path, revision=experiment, dst=output_file)
+        # os.makedirs(results_dir, exist_ok=True)
+
+        output_file = Path(results_dir) / experiment / filename
+        # repo.download(path, revision=experiment, dst=output_file)
+        print(output_file)
 
 
         image_name = filename.replace('.jsonl', '') + "_rolling_average.png"
