@@ -55,7 +55,6 @@ def _(os):
 
 @app.cell
 def _(
-    OxenExperiment,
     RemoteRepo,
     SYSTEM_PROMPT,
     create_dataset,
@@ -64,6 +63,9 @@ def _(
     output_oxen_repo_name_value,
     train_dataset_file,
 ):
+    # Import OxenExperiment
+    from oxen_utils import OxenExperiment
+    
     # Setup the Experiment
     output_repo = RemoteRepo(output_oxen_repo_name_value)
     experiment = OxenExperiment(output_repo, model_name, output_dir)
@@ -250,128 +252,16 @@ def _():
 
 
 @app.cell
-def _(OxenExperiment, TrainerCallback, Workspace, datetime, json, os):
-    class OxenTrainerCallback(TrainerCallback):
-        def __init__(self, experiment: OxenExperiment, progress_bar, commit_every):
-            self.experiment = experiment
-            self.bar = progress_bar
-            self.commit_every = commit_every
-            self.log_file_name = "logs.jsonl"
-            self.log_file = os.path.join(self.experiment.dir, self.log_file_name)
-            self.dst_dir = os.path.dirname(self.log_file)
-            self.workspace = Workspace(
-                experiment.repo,
-                branch=f"{experiment.name}",
-                workspace_name=f"training_run_{experiment.experiment_number}"
-            )
-            super().__init__()
-
-        def on_log(self, args, state, control, logs=None, **kwargs):
-            # print("on_log.logs")
-
-            # add timestamp to logs
-            logs['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            # print(logs)
-
-            # save logs to file
-            with open(self.log_file, "a") as f:
-                f.write(json.dumps(logs) + "\n")
-            # print("------------------------------> Done on_log")
-
-        def on_step_end(self, args, state, control, **kwargs):
-            print(f"on_step_end {state.global_step}")
-            self.bar.update()
-
-            if state.global_step % self.commit_every == 0:
-                try:
-                    for dir_path, _, files in os.walk(self.experiment.dir):
-                        for file_name in files:
-                            path = os.path.join(dir_path, file_name)
-                            if path.endswith("jsonl"):
-                                self.workspace.add(path, dst=str(self.experiment.dir))
-                    self.workspace.commit(f"step {state.global_step} end GRPO")
-                except Exception as e:
-                    print(e)
+def _():
+    # Import the OxenTrainerCallback from the oxen_utils package
+    from oxen_utils import OxenTrainerCallback
     return
 
 
 @app.cell
-def _(Any, Callable, Path, datetime, functools, json, time):
-    class OxenExperiment():
-        """
-        An experiment helps log the experiment to an oxen repository,
-        keeps track of the name and creates a corresponding branch to save results to
-        """
-        def __init__(self, repo, model_name, output_dir, experiment_type="GRPO"):
-            self.repo = repo
-            self.output_dir = output_dir
-
-            experiment_number = 0
-            # branches = repo.branches()
-            # for branch in branches:
-            #     if branch.name.startswith(f"{experiment_type}_"):
-            #         experiment_number += 1
-            self.experiment_number = experiment_number
-            short_model_name = model_name.split('/')[-1]
-            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            # self.name = f"{experiment_type}_{experiment_number}_{timestamp}_{short_model_name}"
-
-            self.name = f"{experiment_type}_{short_model_name}"
-            self.dir = Path(self.output_dir) / self.name
-
-            # if self.dir.exists():
-                # shutil.rmtree(self.dir)
-            self.dir.mkdir(parents=True, exist_ok=True)
-
-            print(f"Creating experiment branch {self.name}")
-            repo.create_checkout_branch(self.name)
-
-        def log(self, filename: str) -> Callable:
-            """
-            Create a decorator for a specific log file.
-
-            Args:
-                filename (str): Name of the log file to write to
-            """
-            log_path = self.dir / filename
-
-            def decorator(func: Callable) -> Callable:
-                @functools.wraps(func)
-                def wrapper(*args, **kwargs) -> Any:
-                    # Log the timestamp and function name
-                    timestamp = datetime.now().isoformat()
-                    func_name = func.__name__
-                    start_time = time.time()
-                    try:
-                        # Execute the function
-                        result = func(*args, **kwargs)
-
-                        # Record one row for each of the results
-                        for i, r in enumerate(result):
-                            log_entry = {
-                                "timestamp": timestamp,
-                                "function": func_name,
-                                "score": r,
-                                "task_id": kwargs['task_id'][i],
-                                "rust_prompt": kwargs['rust_prompt'][i],
-                                "completion": kwargs['completions'][i][0]['content'],
-                                "func_execution_time": time.time() - start_time
-                            }
-
-                            # Write to log file
-                            with open(log_path, 'a') as f:
-                                f.write(json.dumps(log_entry) + '\n')
-
-
-                    except Exception as e:
-                        print(f"Could not run func {func_name}: {e}")
-
-                    return result
-
-                return wrapper
-
-            return decorator
-    return (OxenExperiment,)
+def _():
+    # This cell was used for the OxenExperiment class that is now in the oxen_utils package
+    return
 
 
 @app.cell
@@ -455,40 +345,25 @@ def _():
     from peft import LoraConfig, get_peft_model, PeftModel
     from oxen import RemoteRepo, Workspace
     import os
-    import re
     import numpy as np
     import json
     import torch
     from datetime import datetime
     import gc
     from pathlib import Path
-    import functools
-    from typing import Any, Callable, Optional
-    from uuid import uuid4
-    import subprocess
-    import shutil
-    import time
-
+    
     import wandb
     return (
-        Any,
-        Callable,
         Dataset,
         Path,
         RemoteRepo,
         TrainerCallback,
         Workspace,
         datetime,
-        functools,
         json,
         load_dataset,
         mo,
         os,
-        re,
-        shutil,
-        subprocess,
-        time,
-        uuid4,
     )
 
 
