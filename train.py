@@ -56,20 +56,20 @@ def _(os):
 @app.cell
 def _(
     RemoteRepo,
-    SYSTEM_PROMPT,
-    create_dataset,
     model_name,
     output_dir,
     output_oxen_repo_name_value,
     train_dataset_file,
 ):
-    # Import OxenExperiment
-    from oxen_utils import OxenExperiment
-
+    # Import OxenExperiment and related modules
+    from rust_rl.oxen_utils import OxenExperiment
+    from rust_rl.dataset import create_dataset
+    from rust_rl.prompts import RUST_SYSTEM_PROMPT
+    
     # Setup the Experiment
     output_repo = RemoteRepo(output_oxen_repo_name_value)
     experiment = OxenExperiment(output_repo, model_name, output_dir)
-    train_dataset = create_dataset(train_dataset_file, SYSTEM_PROMPT)
+    train_dataset = create_dataset(train_dataset_file, RUST_SYSTEM_PROMPT)
     # train_dataset = train_dataset.select(range(10))
     # print(f"Running experiment in dir: {experiment.dir}")
     return (experiment,)
@@ -78,7 +78,7 @@ def _(
 @app.cell
 def _(experiment):
     # Import reward functions from the package
-    from reward_functions.functions import (
+    from rust_rl.reward_functions.functions import (
         non_empty_reward_func, 
         tests_have_asserts_reward_func,
         test_block_count_reward_func,
@@ -88,7 +88,7 @@ def _(experiment):
         cargo_test_reward_func,
         test_reward_func
     )
-    from reward_functions.utils import RustTool
+    from rust_rl.reward_functions.utils import RustTool
 
     # Add experiment logging wrappers
     non_empty_reward_func = experiment.log(f"non_empty_rewards.jsonl")(non_empty_reward_func)
@@ -186,6 +186,10 @@ app._unparsable_cell(
             optim=\"adamw_torch\",
             label_names=[],
         )
+        
+        # Import the callback
+        from rust_rl.oxen_utils import OxenTrainerCallback
+        
         trainer = GRPOTrainer(
             model=model,
             processing_class=tokenizer,
@@ -233,59 +237,6 @@ def _():
 
 
 @app.cell
-def _(Dataset, load_dataset):
-    def create_dataset(path, system_prompt) -> Dataset:
-        data = load_dataset("parquet", data_files={"train": path})["train"]
-        data = data.map(lambda x: {
-            'prompt': [
-                {'role': 'system', 'content': system_prompt},
-                {'role': 'user', 'content': x['rust_prompt']}
-            ],
-            "test_list": x['rust_test_list']
-        })
-        # print(data)
-        return data
-    return (create_dataset,)
-
-
-@app.cell
-def _():
-    SYSTEM_PROMPT = """You are a pragmatic Rust programmer who enjoys test driven development. Given the following question, write a Rust function to complete the task. Make the code simple and easy to understand. The code should pass `cargo build` and `cargo clippy`. Try to limit library usage to the standard library std. Be careful with your types, and try to limit yourself to the basic built in types and standard library functions. When writing the function you can think through how to solve the problem and perform reasoning in the comments above the function.
-
-    Then write unit tests for the function you defined. Write multiple unit tests for the function. The tests should be a simple line delimited list of assert! or assert_eq! statements. When writing the unit tests you can have comments specifying what you are testing in plain english. The tests should use super::*.
-
-
-    An example output should look like the following:
-
-    ```rust
-    /// Reasoning goes here
-    /// and can be multi-line
-    fn add_nums(x: i32, y: i32) -> i32 {
-      x + y
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-
-        #[test]
-        fn test_add_nums() {
-            // Test adding positive numbers
-            assert_eq!(add_nums(4, 2), 6);
-            // Test adding a positive and negative number
-            assert_eq!(add_nums(4, -2), 2);
-            // Test adding two negative numbers
-            assert_eq!(add_nums(-12, -1), -13);
-        }
-    }
-    ```
-
-    Make sure to only respond with a single  ```rust``` block. The unit tests must be defined inside the mod tests {} module. Make sure to import any standard library modules that you need. Do not add a main function.
-    """
-    return (SYSTEM_PROMPT,)
-
-
-@app.cell
 def _():
     import marimo as mo
     from datasets import load_dataset, Dataset
@@ -301,7 +252,6 @@ def _():
     import gc
     from pathlib import Path
 
-    from oxen_utils import OxenTrainerCallback
     import wandb
     return Dataset, RemoteRepo, load_dataset, mo, os
 

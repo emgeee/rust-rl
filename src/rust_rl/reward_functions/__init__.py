@@ -1,3 +1,18 @@
+"""
+Reward functions module for evaluating Rust code quality in RL training.
+"""
+
+from .functions import (
+    non_empty_reward_func,
+    tests_have_asserts_reward_func,
+    test_block_count_reward_func,
+    code_block_count_reward_func,
+    cargo_build_reward_func,
+    cargo_clippy_reward_func,
+    cargo_test_reward_func,
+    test_reward_func,
+)
+
 from .utils import (
     RustTool,
     extract_regex,
@@ -12,17 +27,6 @@ from .utils import (
     template_rs_file,
     cargo_toml_file,
     setup_and_test_rust_project,
-)
-
-from .functions import (
-    non_empty_reward_func,
-    tests_have_asserts_reward_func,
-    test_block_count_reward_func,
-    code_block_count_reward_func,
-    cargo_build_reward_func,
-    cargo_clippy_reward_func,
-    cargo_test_reward_func,
-    test_reward_func,
 )
 
 __all__ = [

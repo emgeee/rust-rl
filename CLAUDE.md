@@ -15,6 +15,13 @@ This project uses Generative Reinforcement Learning from Policy Optimization (GR
   - `process_data.py`: Marimo notebook for data processing and analysis
   - `viz.py`: Marimo notebook for visualizing training results
 
+- **Library Code**:
+  - `src/rust_rl`: Main package containing modular components:
+    - `dataset`: Dataset handling utilities
+    - `oxen_utils`: Oxen experiment and logging utilities
+    - `prompts`: System prompts for Rust code generation
+    - `reward_functions`: Reward functions for evaluating Rust code quality
+
 - **Data and Outputs**:
   - `qwen3-rust-finetune/`: Directory containing datasets and outputs
   - `outputs/`: Training outputs
@@ -22,8 +29,8 @@ This project uses Generative Reinforcement Learning from Policy Optimization (GR
 ## Environment Setup
 
 ```bash
-# Install Python dependencies using uv
-uv pip install -e .
+# Install Python dependencies in development mode
+pip install -e .
 
 # Ensure Rust toolchain is installed for evaluation
 rustup default stable
