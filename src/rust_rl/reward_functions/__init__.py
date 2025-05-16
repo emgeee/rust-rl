@@ -13,6 +13,11 @@ from .functions import (
     test_reward_func,
 )
 
+from .wrapper import (
+    safe_reward_func,
+    create_reward_logger,
+)
+
 from .utils import (
     RustTool,
     extract_regex,
@@ -30,6 +35,7 @@ from .utils import (
 )
 
 __all__ = [
+    # Utility functions
     'RustTool',
     'extract_regex',
     'extract_code_regex',
@@ -43,6 +49,8 @@ __all__ = [
     'template_rs_file',
     'cargo_toml_file',
     'setup_and_test_rust_project',
+    
+    # Reward functions
     'non_empty_reward_func',
     'tests_have_asserts_reward_func',
     'test_block_count_reward_func',
@@ -51,4 +59,8 @@ __all__ = [
     'cargo_clippy_reward_func',
     'cargo_test_reward_func',
     'test_reward_func',
+    
+    # Wrappers
+    'safe_reward_func',
+    'create_reward_logger',
 ]

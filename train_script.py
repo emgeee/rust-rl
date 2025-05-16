@@ -6,11 +6,14 @@ This script provides functionality to train language models for generating Rust 
 using GRPO (Generative Reinforcement Learning from Policy Optimization).
 """
 
+# Set tokenizers parallelism before importing transformers
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import argparse
 import functools
 import gc
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, List
@@ -19,19 +22,23 @@ import torch
 from datasets import load_dataset
 from peft import LoraConfig
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainerCallback
 from trl import GRPOConfig, GRPOTrainer
 
 from rust_rl.dataset import prepare_hf_dataset
 # Import from our project modules
 from rust_rl.prompts import RUST_SYSTEM_PROMPT
-from rust_rl.reward_functions.functions import (cargo_build_reward_func,
-                                                cargo_clippy_reward_func,
-                                                cargo_test_reward_func,
-                                                code_block_count_reward_func,
-                                                non_empty_reward_func,
-                                                test_block_count_reward_func,
-                                                tests_have_asserts_reward_func)
+from rust_rl.reward_functions import (
+    cargo_build_reward_func,
+    cargo_clippy_reward_func,
+    cargo_test_reward_func,
+    code_block_count_reward_func,
+    non_empty_reward_func,
+    test_block_count_reward_func,
+    tests_have_asserts_reward_func,
+    safe_reward_func,
+    create_reward_logger
+)
 
 
 def parse_args():
@@ -161,23 +168,58 @@ def parse_args():
     return parser.parse_args()
 
 
-class SimpleProgressBar:
-    """A simple progress bar for tracking training."""
-
-    def __init__(self, total):
-        self.total = total
-        self.pbar = tqdm(total=total, dynamic_ncols=True)
-
-    def update(self, title=None):
-        if title:
-            self.pbar.set_description(title)
-        self.pbar.update(1)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        self.pbar.close()
+# Define a custom TQDM callback for training progress
+class TQDMTrainerCallback(TrainerCallback):
+    """Custom callback using tqdm for progress tracking."""
+    
+    def __init__(self, output_dir):
+        """Initialize callback with output directory."""
+        super().__init__()
+        self.output_dir = output_dir
+        self.log_file = os.path.join(output_dir, "training_logs.jsonl")
+        os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
+        self.pbar = None
+        self.current_step = 0
+        self.total_steps = 0
+    
+    def on_train_begin(self, args, state, control, **kwargs):
+        """Called at the beginning of training."""
+        if hasattr(args, "max_steps") and args.max_steps > 0:
+            self.total_steps = args.max_steps
+        else:
+            # Estimate total steps from epochs and dataset size
+            train_dl = kwargs.get("train_dataloader", None)
+            if train_dl:
+                batch_size = args.per_device_train_batch_size * args.gradient_accumulation_steps
+                steps_per_epoch = len(train_dl) // batch_size
+                self.total_steps = steps_per_epoch * args.num_train_epochs
+            else:
+                self.total_steps = 1000  # Arbitrary default
+        
+        self.pbar = tqdm(total=self.total_steps, desc="Training", dynamic_ncols=True)
+    
+    def on_step_end(self, args, state, control, **kwargs):
+        """Called at the end of a training step."""
+        if self.pbar is not None:
+            self.pbar.update(1)
+            self.pbar.set_description(f"Step {state.global_step}")
+            self.current_step = state.global_step
+    
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        """Called when logs are about to be sent to logger."""
+        if logs:
+            # Add timestamp to logs
+            logs["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Save logs to file
+            with open(self.log_file, "a") as f:
+                f.write(json.dumps(logs) + "\n")
+    
+    def on_train_end(self, args, state, control, **kwargs):
+        """Called at the end of training."""
+        if self.pbar is not None:
+            self.pbar.close()
+            self.pbar = None
 
 
 def setup_wandb(args):
@@ -282,6 +324,24 @@ def setup_model(args, device, device_map, attn_implementation, dtype):
     return tokenizer, model, peft_config
 
 
+def log_trainable_parameters(model, output_dir):
+    """Log trainable parameters to a file."""
+    param_file = os.path.join(output_dir, "peft_parameters.txt")
+    os.makedirs(os.path.dirname(param_file), exist_ok=True)
+    
+    with open(param_file, "w") as f:
+        trainable_params = 0
+        all_param = 0
+        for name, param in model.named_parameters():
+            all_param += param.numel()
+            if param.requires_grad:
+                trainable_params += param.numel()
+                f.write(f"{name}\t{param.numel()}\n")
+        param_str = f"trainable params: {trainable_params} || all params: {all_param} || trainable %: {100 * trainable_params / all_param}"
+        print(param_str)
+        f.write(param_str)
+
+
 def main():
     """Main training function."""
     args = parse_args()
@@ -336,6 +396,9 @@ def main():
 
     print(f"Dataset loaded with {len(train_dataset)} examples")
 
+    # Log trainable parameters
+    log_trainable_parameters(model, output_dir)
+
     # Free up memory
     gc.collect()
     if torch.cuda.is_available():
@@ -375,22 +438,43 @@ def main():
         run_name=args.run_name,
     )
 
-    # Set up progress bar
+    # Create a reward logger
+    reward_log_dir = os.path.join(output_dir, "reward_logs")
+    os.makedirs(reward_log_dir, exist_ok=True)
+    logger = create_reward_logger(reward_log_dir)
+    
+    # Apply decorators properly - first create the logging decorators
+    log_non_empty = logger("non_empty")
+    log_tests_have_asserts = logger("tests_have_asserts")
+    log_test_block_count = logger("test_block_count")
+    log_code_block_count = logger("code_block_count")
+    log_cargo_build = logger("cargo_build")
+    log_cargo_clippy = logger("cargo_clippy")
+    log_cargo_test = logger("cargo_test")
+    
+    # Then wrap each reward function with logging and safety
+    wrapped_reward_funcs = [
+        safe_reward_func(log_non_empty(non_empty_reward_func)),
+        safe_reward_func(log_tests_have_asserts(tests_have_asserts_reward_func)),
+        safe_reward_func(log_test_block_count(test_block_count_reward_func)),
+        safe_reward_func(log_code_block_count(code_block_count_reward_func)),
+        safe_reward_func(log_cargo_build(cargo_build_reward_func)),
+        safe_reward_func(log_cargo_clippy(cargo_clippy_reward_func)),
+        safe_reward_func(log_cargo_test(cargo_test_reward_func)),
+    ]
+    
+    # Create a simple progress bar callback
+    progress_callback = TQDMTrainerCallback(output_dir=output_dir)
+    
+    # Set up trainer
     trainer = GRPOTrainer(
         model=model,
         processing_class=tokenizer,
-        reward_funcs=[
-            non_empty_reward_func,
-            tests_have_asserts_reward_func,
-            test_block_count_reward_func,
-            code_block_count_reward_func,
-            cargo_build_reward_func,
-            cargo_clippy_reward_func,
-            cargo_test_reward_func,
-        ],
+        reward_funcs=wrapped_reward_funcs,
         args=training_args,
         train_dataset=train_dataset,
         peft_config=peft_config,
+        callbacks=[progress_callback],
     )
 
     # Train the model - determine if resuming

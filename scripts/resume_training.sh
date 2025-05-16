@@ -31,7 +31,7 @@ fi
 python train_script.py \
     --run-name "${RUN_NAME}" \
     --resume-from-checkpoint "${CHECKPOINT_PATH}" \
-    --dataset-name "m-green/rust-cargo-test-passed" \
+    --dataset-name "mgreen/rust-ft" \
     --dataset-split "train" \
     --output-dir "outputs" \
     --save-every 100 \
