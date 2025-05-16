@@ -14,7 +14,7 @@ RUN_NAME="rust_rl_Qwen2_5_Coder_4B_${TIMESTAMP}"
 python train_script.py \
     --model-name "Qwen/Qwen2.5-Coder-4B-Instruct" \
     --run-name "${RUN_NAME}" \
-    --dataset-name "m-green/rust-cargo-test-passed" \
+    --dataset-name "mgreen/rust-ft" \
     --dataset-split "train" \
     --output-dir "outputs" \
     --num-epochs 1 \
