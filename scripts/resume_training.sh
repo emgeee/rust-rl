@@ -1,58 +1,41 @@
 #!/bin/bash
-# Script to resume training from a checkpoint
+# Helper script to resume training from a checkpoint
 
-# Check if checkpoint path is provided
-if [ "$#" -lt 1 ]; then
-    echo "Error: Checkpoint path is required"
-    echo "Usage: $0 <checkpoint_path> [additional_args...]"
+# Check if checkpoint is provided
+if [ -z "$1" ]; then
+    echo "Usage: $0 <checkpoint-path> [additional-args...]"
+    echo "Example: $0 outputs/rust_rl_Qwen2_5_Coder_1_5B_20250516/checkpoint-500"
     exit 1
 fi
 
-CHECKPOINT_PATH=$1
-shift  # Remove the first argument (checkpoint path)
+CHECKPOINT_PATH="$1"
+shift
 
-# Look for the parent output directory (usually containing the run name)
-PARENT_DIR=$(dirname "$CHECKPOINT_PATH")
-echo "Parent directory: $PARENT_DIR"
-
-# Extract WandB ID from various possible sources
-WANDB_ID=""
-
-# Try looking for wandb files in the parent directory
-WANDB_DIR=$(find "$PARENT_DIR" -type d -name "wandb" 2>/dev/null | head -n 1)
-if [ -n "$WANDB_DIR" ]; then
-    echo "Found WandB directory: $WANDB_DIR"
-    # Look for run files
-    RUN_ID_FILE=$(find "$WANDB_DIR" -name "*.wandb" -o -name "run-*.json" 2>/dev/null | head -n 1)
-    if [ -n "$RUN_ID_FILE" ]; then
-        # Extract ID from filename (e.g., run-20230101_123456-abc123.wandb -> abc123)
-        BASENAME=$(basename "$RUN_ID_FILE")
-        if [[ "$BASENAME" =~ -([a-z0-9]+)\. ]]; then
-            WANDB_ID="${BASH_REMATCH[1]}"
-        fi
-    fi
+# Navigate to project root if running from scripts directory
+if [[ $(basename "$PWD") == "scripts" ]]; then
+    cd ..
 fi
 
-# If we still don't have an ID, look for other files
-if [ -z "$WANDB_ID" ]; then
-    # Try looking for the wandb-summary.json file
-    WANDB_SUMMARY=$(find "$PARENT_DIR" -name "wandb-summary.json" 2>/dev/null | head -n 1)
-    if [ -n "$WANDB_SUMMARY" ]; then
-        WANDB_ID=$(grep -o '"_wandb_id": "[^"]*"' "$WANDB_SUMMARY" | cut -d'"' -f4)
-    fi
-fi
+# Generate run name indicating it's a resumed run
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
-# Set up wandb argument if we found an ID
-if [ -n "$WANDB_ID" ]; then
-    echo "Found WandB ID: $WANDB_ID"
-    WANDB_ARG="--resume-wandb-id $WANDB_ID"
+# Extract the original run name from the checkpoint path if possible
+ORIG_RUN_NAME=$(basename $(dirname "$CHECKPOINT_PATH"))
+if [[ $ORIG_RUN_NAME == rust_rl_* ]]; then
+    RUN_NAME="${ORIG_RUN_NAME}_resumed_${TIMESTAMP}"
 else
-    echo "No WandB ID found. Will create a new WandB run."
-    WANDB_ARG=""
+    RUN_NAME="resumed_training_${TIMESTAMP}"
 fi
 
-# Run the training script with the checkpoint
+# Run training with checkpoint
 python train_script.py \
-  --resume-from-checkpoint "$CHECKPOINT_PATH" \
-  $WANDB_ARG \
-  "$@"
+    --run-name "${RUN_NAME}" \
+    --resume-from-checkpoint "${CHECKPOINT_PATH}" \
+    --dataset-name "m-green/rust-cargo-test-passed" \
+    --dataset-split "train" \
+    --output-dir "outputs" \
+    --save-every 100 \
+    --num-generations 4 \
+    "$@"
+
+echo "Resumed training completed for ${RUN_NAME}"
