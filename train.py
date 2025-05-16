@@ -65,7 +65,7 @@ def _(
 ):
     # Import OxenExperiment
     from oxen_utils import OxenExperiment
-    
+
     # Setup the Experiment
     output_repo = RemoteRepo(output_oxen_repo_name_value)
     experiment = OxenExperiment(output_repo, model_name, output_dir)
@@ -88,7 +88,8 @@ def _(experiment):
         cargo_test_reward_func,
         test_reward_func
     )
-    
+    from reward_functions.utils import RustTool
+
     # Add experiment logging wrappers
     non_empty_reward_func = experiment.log(f"non_empty_rewards.jsonl")(non_empty_reward_func)
     tests_have_asserts_reward_func = experiment.log(f"tests_have_asserts_rewards.jsonl")(tests_have_asserts_reward_func)
@@ -214,58 +215,6 @@ app._unparsable_cell(
 
 @app.cell
 def _():
-    # Import RustTool from the reward_functions package
-    from reward_functions.utils import RustTool
-    return (RustTool,)
-
-
-@app.cell
-def _():
-    # Import utility functions from the reward_functions package
-    from reward_functions.utils import (
-        cargo_toml_file,
-        extract_rust_code,
-        extract_test_code,
-        response_contains_asserts,
-        response_contains_more_than_non_empty_line,
-        response_contains_one_code_block,
-        response_contains_one_test_block,
-        template_rs_file,
-    )
-    return (
-        cargo_toml_file,
-        extract_rust_code,
-        extract_test_code,
-        response_contains_asserts,
-        response_contains_more_than_non_empty_line,
-        response_contains_one_code_block,
-        response_contains_one_test_block,
-        template_rs_file,
-    )
-
-
-@app.cell
-def _():
-    # Import setup_and_test_rust_project from the reward_functions package
-    from reward_functions.utils import setup_and_test_rust_project
-    return (setup_and_test_rust_project,)
-
-
-@app.cell
-def _():
-    # Import the OxenTrainerCallback from the oxen_utils package
-    from oxen_utils import OxenTrainerCallback
-    return
-
-
-@app.cell
-def _():
-    # This cell was used for the OxenExperiment class that is now in the oxen_utils package
-    return
-
-
-@app.cell
-def _():
     # def transform_dataset(system_prompt, dataset, tokenizer):
     #     data = dataset.map(lambda x: {
     #         'messages': [
@@ -351,20 +300,10 @@ def _():
     from datetime import datetime
     import gc
     from pathlib import Path
-    
+
+    from oxen_utils import OxenTrainerCallback
     import wandb
-    return (
-        Dataset,
-        Path,
-        RemoteRepo,
-        TrainerCallback,
-        Workspace,
-        datetime,
-        json,
-        load_dataset,
-        mo,
-        os,
-    )
+    return Dataset, RemoteRepo, load_dataset, mo, os
 
 
 @app.cell(hide_code=True)
