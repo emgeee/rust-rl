@@ -74,95 +74,27 @@ def _(
 
 
 @app.cell
-def _(
-    RustTool,
-    experiment,
-    extract_rust_code,
-    extract_test_code,
-    response_contains_asserts,
-    response_contains_more_than_non_empty_line,
-    response_contains_one_code_block,
-    response_contains_one_test_block,
-    setup_and_test_rust_project,
-):
-    # Define reward functions
-    @experiment.log(f"non_empty_rewards.jsonl")
-    def non_empty_reward_func(prompts, completions, **kwargs) -> list[float]:
-        contents = [completion[0]["content"] for completion in completions]
-        return [response_contains_more_than_non_empty_line(c) for c in contents]
-
-
-    @experiment.log(f"tests_have_asserts_rewards.jsonl")
-    def tests_have_asserts_reward_func(
-        prompts, completions, **kwargs
-    ) -> list[float]:
-        contents = [completion[0]["content"] for completion in completions]
-        return [response_contains_asserts(c) for c in contents]
-
-
-    @experiment.log(f"test_block_count_rewards.jsonl")
-    def test_block_count_reward_func(
-        prompts, completions, **kwargs
-    ) -> list[float]:
-        contents = [completion[0]["content"] for completion in completions]
-        return [response_contains_one_test_block(c) for c in contents]
-
-
-    @experiment.log(f"code_block_count_rewards.jsonl")
-    def code_block_count_reward_func(
-        prompts, completions, **kwargs
-    ) -> list[float]:
-        contents = [completion[0]["content"] for completion in completions]
-        return [response_contains_one_code_block(c) for c in contents]
-
-
-    @experiment.log(f"cargo_build_rewards.jsonl")
-    def cargo_build_reward_func(prompts, completions, **kwargs) -> list[float]:
-        responses = [completion[0]["content"] for completion in completions]
-        extracted_answers = [extract_rust_code(r) for r in responses]
-        results = []
-        for i, answer in enumerate(extracted_answers):
-            data = {"rust_code": answer}
-            tools = [RustTool("build")]
-            cargo_results = setup_and_test_rust_project(data, tools)
-            score = 1.0 if cargo_results["build_passed"] else 0.0
-            results.append(score)
-        return results
-
-
-    @experiment.log(f"cargo_clippy_rewards.jsonl")
-    def cargo_clippy_reward_func(prompts, completions, **kwargs) -> list[float]:
-        responses = [completion[0]["content"] for completion in completions]
-        extracted_answers = [extract_rust_code(r) for r in responses]
-        results = []
-        for i, answer in enumerate(extracted_answers):
-            data = {"rust_code": answer}
-            tools = [RustTool("clippy")]
-            cargo_results = setup_and_test_rust_project(data, tools)
-            score = 1.0 if cargo_results["clippy_passed"] else 0.0
-            results.append(score)
-        return results
-
-
-    @experiment.log(f"cargo_test_rewards.jsonl")
-    def cargo_test_reward_func(prompts, completions, **kwargs) -> list[float]:
-        responses = [completion[0]["content"] for completion in completions]
-        extracted_codes = [extract_rust_code(r) for r in responses]
-        extracted_tests = [extract_test_code(c) for c in extracted_codes]
-        results = []
-        for i, answer in enumerate(extracted_codes):
-            score = 0.0
-            if extracted_tests[i]:
-                data = {"rust_code": answer}
-                tools = [RustTool("test")]
-                cargo_results = setup_and_test_rust_project(data, tools)
-                score = 2.0 if cargo_results["test_passed"] else 0.0
-            results.append(score)
-        return results
-
-
-    def test_reward_func(prompts, completions, **kwargs) -> list[float]:
-        return [1.0]
+def _(experiment):
+    # Import reward functions from the package
+    from reward_functions.functions import (
+        non_empty_reward_func, 
+        tests_have_asserts_reward_func,
+        test_block_count_reward_func,
+        code_block_count_reward_func,
+        cargo_build_reward_func,
+        cargo_clippy_reward_func,
+        cargo_test_reward_func,
+        test_reward_func
+    )
+    
+    # Add experiment logging wrappers
+    non_empty_reward_func = experiment.log(f"non_empty_rewards.jsonl")(non_empty_reward_func)
+    tests_have_asserts_reward_func = experiment.log(f"tests_have_asserts_rewards.jsonl")(tests_have_asserts_reward_func)
+    test_block_count_reward_func = experiment.log(f"test_block_count_rewards.jsonl")(test_block_count_reward_func)
+    code_block_count_reward_func = experiment.log(f"code_block_count_rewards.jsonl")(code_block_count_reward_func)
+    cargo_build_reward_func = experiment.log(f"cargo_build_rewards.jsonl")(cargo_build_reward_func)
+    cargo_clippy_reward_func = experiment.log(f"cargo_clippy_rewards.jsonl")(cargo_clippy_reward_func)
+    cargo_test_reward_func = experiment.log(f"cargo_test_rewards.jsonl")(cargo_test_reward_func)
 
     return
 
@@ -279,131 +211,25 @@ app._unparsable_cell(
 
 
 @app.cell
-def _(subprocess):
-    class RustTool:
-        def __init__(self, name):
-            self.name = name
-
-        def run(self, results, project_dir):
-            try:
-                result = subprocess.run(
-                    ["cargo", self.name, "--quiet"],
-                    cwd=project_dir,
-                    capture_output=True,
-                    text=True,
-                    timeout=60
-                )
-                results[f'{self.name}_passed'] = result.returncode == 0
-                results[f'{self.name}_stderr'] = str(result.stderr)
-            except Exception as e:
-                results[f'{self.name}_passed'] = False
-                results[f'{self.name}_stderr'] = f"{e}"
-            return results
+def _():
+    # Import RustTool from the reward_functions package
+    from reward_functions.utils import RustTool
     return (RustTool,)
 
 
 @app.cell
-def _(re):
-    def extract_regex(text: str, pattern: str) -> str | None:
-        # Use re.DOTALL to make '.' match newlines as well
-        match = re.search(pattern, text, re.DOTALL)
-
-        if match:
-            return match.group(1)
-        else:
-            return None
-
-
-    def extract_code_regex():
-        return r"```rust\n(.*?)\n```"
-
-
-    def extract_test_regex():
-        return r"(#\[cfg\(test\)\]\s*mod\s+tests\s*\{.*?\})"
-
-
-    def extract_rust_code(response: str) -> str:
-        code = extract_regex(response, extract_code_regex())
-        if code:
-            return code
-        else:
-            return response
-
-
-    def extract_test_code(response: str) -> str:
-        return extract_regex(response, extract_test_regex())
-
-
-    def response_contains_one_code_block(response: str) -> float:
-        # It has to have a ```rust``` block and a fn
-        if extract_rust_code(response) and "fn " in response:
-            return 0.5
-        else:
-            return 0.0
-
-
-    def response_contains_one_test_block(response: str) -> float:
-        if extract_test_code(response):
-            return 0.5
-        else:
-            return 0.0
-
-
-    def response_contains_asserts(response: str) -> float:
-        test_code = extract_test_code(response)
-        if not test_code:
-            return 0.0
-
-        unique_asserts = set()
-        for line in test_code.split("\n"):
-            line = line.strip()
-            if line.startswith("assert!(") or line.startswith("assert_eq!("):
-                unique_asserts.add(line)
-        if len(unique_asserts) >= 4:
-            return 1.0
-        return 0.25 * len(unique_asserts)
-
-
-    def response_contains_more_than_non_empty_line(response: str) -> float:
-        if not (
-            response_contains_one_code_block(response)
-            and response_contains_one_test_block(response)
-        ):
-            return 0.0
-
-        code = extract_rust_code(response)
-        num_non_empty = 0
-        for line in code.split("\n"):
-            line = line.strip()
-            if line.startswith("//"):
-                continue
-            if len(line) < 2:
-                continue
-            num_non_empty += 1
-        return 1.0 if num_non_empty >= 3 else 0.0
-
-
-    def template_rs_file():
-        return """
-    #![allow(dead_code)]
-    // {code}
-
-    // Need basic main function for the code to compile
-    fn main() {
-      println!("Hello World");
-    }
-    """
-
-
-    def cargo_toml_file():
-        return """
-    [package]
-    name = "rust-program"
-    version = "0.1.0"
-    edition = "2021"
-
-    [dependencies]
-    """
+def _():
+    # Import utility functions from the reward_functions package
+    from reward_functions.utils import (
+        cargo_toml_file,
+        extract_rust_code,
+        extract_test_code,
+        response_contains_asserts,
+        response_contains_more_than_non_empty_line,
+        response_contains_one_code_block,
+        response_contains_one_test_block,
+        template_rs_file,
+    )
     return (
         cargo_toml_file,
         extract_rust_code,
@@ -417,59 +243,9 @@ def _(re):
 
 
 @app.cell
-def _(
-    Path,
-    cargo_toml_file,
-    extract_rust_code,
-    shutil,
-    template_rs_file,
-    uuid4,
-):
-    def setup_and_test_rust_project(row, tools):
-        """
-        Sets up a Rust project from template and runs tests for a single row of data
-        """
-        # Create temporary project directory
-        project_dir = Path("outputs") / Path("tests") / Path(f"temp_rust_project_{uuid4()}")
-        project_dir_src = project_dir / Path("src")
-
-        # mkdirs if they don't exist
-        project_dir_src.mkdir(parents=True, exist_ok=True)
-
-        # Read template
-        template = template_rs_file()
-
-        # Replace placeholders
-        rust_code = extract_rust_code(row['rust_code'])
-        template = template.replace("// {code}", rust_code)
-
-        print(template)
-
-        # Write the cargo project files
-        main_rs_path = project_dir_src / Path("main.rs")
-        with open(main_rs_path, "w") as f:
-            f.write(template)
-
-        cargo_file_path = project_dir / Path("Cargo.toml")
-        with open(cargo_file_path, "w") as f:
-            f.write(cargo_toml_file())
-
-        results = {}
-        for tool in tools:
-            results = tool.run(results, project_dir)
-
-        print("----> Tool Results")
-        for k,v in results.items():
-            print("")
-            print(k)
-            print(v)
-
-        print("="*80)
-
-        # Clean up
-        shutil.rmtree(project_dir)
-
-        return results
+def _():
+    # Import setup_and_test_rust_project from the reward_functions package
+    from reward_functions.utils import setup_and_test_rust_project
     return (setup_and_test_rust_project,)
 
 
