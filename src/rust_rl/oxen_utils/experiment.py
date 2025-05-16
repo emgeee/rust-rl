@@ -2,37 +2,84 @@ from pathlib import Path
 from datetime import datetime
 import functools
 import json
+import os
 import time
 from typing import Any, Callable
 
 class OxenExperiment:
     """
-    An experiment helps log the experiment to an oxen repository,
-    keeps track of the name and creates a corresponding branch to save results to
+    An experiment that logs results to an Oxen repository.
+    
+    Creates a branch based on the run_name and outputs all results to that branch.
+    This allows for easy tracking and comparison of different runs.
     """
-    def __init__(self, repo, model_name, output_dir, experiment_type="GRPO"):
+    def __init__(self, repo, model_name, output_dir, run_name="GRPO"):
         self.repo = repo
         self.output_dir = output_dir
-
-        experiment_number = 0
-        # branches = repo.branches()
-        # for branch in branches:
-        #     if branch.name.startswith(f"{experiment_type}_"):
-        #         experiment_number += 1
-        self.experiment_number = experiment_number
-        short_model_name = model_name.split('/')[-1]
+        
+        # Clean the run_name to be a valid branch name
+        self.branch_name = self._sanitize_branch_name(run_name.replace(" ", "_").lower())
+        
+        # Set up experiment metadata
+        self.experiment_number = 0  # For compatibility with existing code
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        # self.name = f"{experiment_type}_{experiment_number}_{timestamp}_{short_model_name}"
-
-        self.name = f"{experiment_type}_{short_model_name}"
+        
+        # Set name and directory (name is the original run_name)
+        self.name = run_name
         self.dir = Path(self.output_dir) / self.name
-
-        # if self.dir.exists():
-            # shutil.rmtree(self.dir)
+        
+        # Create the directory
         self.dir.mkdir(parents=True, exist_ok=True)
+        
+        # Check if branch exists
+        existing_branches = [branch.name for branch in repo.branches()]
+        
+        if self.branch_name in existing_branches:
+            print(f"Using existing branch: {self.branch_name}")
+            # Switch to the branch
+            repo.checkout(self.branch_name)
+        else:
+            print(f"Creating new experiment branch: {self.branch_name}")
+            # Create and checkout a new branch
+            repo.create_checkout_branch(self.branch_name)
+        
+        # Save experiment metadata
+        self._save_metadata(model_name, timestamp)
 
-        print(f"Creating experiment branch {self.name}")
-        repo.create_checkout_branch(self.name)
+    def _sanitize_branch_name(self, name):
+        """
+        Ensure the branch name is valid for git.
+        Remove problematic characters and truncate if too long.
+        """
+        # Replace invalid characters
+        invalid_chars = [':', ' ', '\\', '~', '^', ':', '?', '*', '[', ']', '{', '}']
+        for char in invalid_chars:
+            name = name.replace(char, '_')
+        
+        # Remove consecutive underscores
+        while '__' in name:
+            name = name.replace('__', '_')
+        
+        # Truncate if too long (git typically has a limit around 250 chars)
+        max_length = 100
+        if len(name) > max_length:
+            name = name[:max_length]
+        
+        return name
+    
+    def _save_metadata(self, model_name, timestamp):
+        """Save metadata about the experiment to a JSON file."""
+        metadata = {
+            "model_name": model_name,
+            "branch_name": self.branch_name,
+            "run_name": self.name,
+            "timestamp": timestamp,
+            "output_directory": str(self.dir)
+        }
+        
+        metadata_file = self.dir / "experiment_metadata.json"
+        with open(metadata_file, 'w') as f:
+            json.dump(metadata, f, indent=2)
 
     def log(self, filename: str) -> Callable:
         """

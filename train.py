@@ -46,10 +46,14 @@ def _(os):
     os.environ["WANDB_PROJECT"]="rust-rl"
     os.environ["WANDB_WATCH"]="false"
     return (
+        commit_every_value,
         model_name,
+        num_generations_value,
         output_dir,
         output_oxen_repo_name_value,
+        save_every_value,
         train_dataset_file,
+        use_gpu,
     )
 
 
@@ -65,14 +69,14 @@ def _(
     from rust_rl.oxen_utils import OxenExperiment
     from rust_rl.dataset import create_dataset
     from rust_rl.prompts import RUST_SYSTEM_PROMPT
-    
+
     # Setup the Experiment
     output_repo = RemoteRepo(output_oxen_repo_name_value)
     experiment = OxenExperiment(output_repo, model_name, output_dir)
     train_dataset = create_dataset(train_dataset_file, RUST_SYSTEM_PROMPT)
     # train_dataset = train_dataset.select(range(10))
     # print(f"Running experiment in dir: {experiment.dir}")
-    return (experiment,)
+    return experiment, train_dataset
 
 
 @app.cell
@@ -99,23 +103,53 @@ def _(experiment):
     cargo_clippy_reward_func = experiment.log(f"cargo_clippy_rewards.jsonl")(cargo_clippy_reward_func)
     cargo_test_reward_func = experiment.log(f"cargo_test_rewards.jsonl")(cargo_test_reward_func)
 
-    return
+    return (
+        cargo_build_reward_func,
+        cargo_clippy_reward_func,
+        cargo_test_reward_func,
+        non_empty_reward_func,
+        test_block_count_reward_func,
+        tests_have_asserts_reward_func,
+    )
 
 
-app._unparsable_cell(
-    r"""
+@app.cell
+def training(
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    GRPOConfig,
+    GRPOTrainer,
+    LoraConfig,
+    cargo_build_reward_func,
+    cargo_clippy_reward_func,
+    cargo_test_reward_func,
+    commit_every_value,
+    experiment,
+    gc,
+    mo,
+    model_name,
+    non_empty_reward_func,
+    num_generations_value,
+    os,
+    save_every_value,
+    test_block_count_reward_func,
+    tests_have_asserts_reward_func,
+    torch,
+    train_dataset,
+    use_gpu,
+):
     # Training Code
-    print(\"Starting training...\")
+    print("Starting training...")
     gc.collect()
 
-    device = \"cpu\"
+    device = "cpu"
     device_map = None
     attn_implementation = None
     if use_gpu:
-        device = \"cuda\"
-        device_map = \"auto\"
-        attn_implementation = \"flash_attention_2\"
-    print(f\"Using device: {device} -> '{use_gpu}'\")
+        device = "cuda"
+        device_map = "auto"
+        attn_implementation = "flash_attention_2"
+    print(f"Using device: {device} -> '{use_gpu}'")
 
     # Load model
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -131,46 +165,45 @@ app._unparsable_cell(
         r=16,
         lora_alpha=64,
         # Trying to get working with 16GB of VRAM
-        target_modules=\"all-linear\",
-        # target_modules=[\"q_proj\", \"k_proj\", \"v_proj\", \"o_proj\", \"up_proj\", \"down_proj\", \"gate_proj\"],
-        # target_modules=[\"q_proj\", \"k_proj\", \"v_proj\"],
-        task_type=\"CAUSAL_LM\",
+        target_modules="all-linear",
+        # target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "down_proj", "gate_proj"],
+        # target_modules=["q_proj", "k_proj", "v_proj"],
+        task_type="CAUSAL_LM",
         lora_dropout=0.05,
     )
 
     model.enable_input_require_grads()
     model.train()
-    print(f\"model in training mode: {model.training}\")
+    print(f"model in training mode: {model.training}")
 
-    with open(os.path.join(experiment.dir, \"peft.txt\"), \"w\") as f:
+    with open(os.path.join(experiment.dir, "peft.txt"), "w") as f:
         trainable_params = 0
         all_param = 0
         for name, param in model.named_parameters():
             all_param += param.numel()
             if param.requires_grad:
                 trainable_params += param.numel()
-                f.write(f\"{name}\t{param.numel()}\n\")
-        param_str = f\"trainable params: {trainable_params} || all params: {all_param} || trainable %: {100 * trainable_params / all_param}\"
+                f.write(f"{name}\t{param.numel()}\n")
+        param_str = f"trainable params: {trainable_params} || all params: {all_param} || trainable %: {100 * trainable_params / all_param}"
         print(param_str)
         f.write(param_str)
 
     batch_size = 1
     num_examples = len(train_dataset)
     num_batches = num_examples / batch_size
-    print(f\"num_examples: {num_examples}, num_batches: {num_batches}\")
+    print(f"num_examples: {num_examples}, num_batches: {num_batches}")
 
     with mo.status.progress_bar(total=num_batches) as bar:
         training_args = GRPOConfig(
             output_dir=experiment.dir,
-            report_to=\"wandb\",
-            num_generations=8, # default value is 8, here for reference
+            report_to="wandb",
             learning_rate=5e-6,
             # learning_rate=5e-5,
             adam_beta1=0.9,
             adam_beta2=0.99,
             weight_decay=0.1,
             warmup_ratio=0.1,
-            lr_scheduler_type=\"cosine\",
+            lr_scheduler_type="cosine",
             logging_steps=1,
             bf16=True,
             per_device_train_batch_size=batch_size,
@@ -183,13 +216,13 @@ app._unparsable_cell(
             save_total_limit=1,
             max_grad_norm=0.1,
             log_on_each_node=False,
-            optim=\"adamw_torch\",
+            optim="adamw_torch",
             label_names=[],
         )
-        
+    
         # Import the callback
         from rust_rl.oxen_utils import OxenTrainerCallback
-        
+    
         trainer = GRPOTrainer(
             model=model,
             processing_class=tokenizer,
@@ -212,9 +245,7 @@ app._unparsable_cell(
             ],
         )
         trainer.train()
-    """,
-    name="training"
-)
+    return
 
 
 @app.cell
@@ -253,7 +284,18 @@ def _():
     from pathlib import Path
 
     import wandb
-    return Dataset, RemoteRepo, load_dataset, mo, os
+    return (
+        AutoModelForCausalLM,
+        AutoTokenizer,
+        GRPOConfig,
+        GRPOTrainer,
+        LoraConfig,
+        RemoteRepo,
+        gc,
+        mo,
+        os,
+        torch,
+    )
 
 
 @app.cell(hide_code=True)

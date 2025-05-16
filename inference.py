@@ -46,11 +46,39 @@ def _(mo):
 
 
 @app.cell
+def _():
+    import os
+    import marimo as mo
+    import pandas as pd
+    from pathlib import Path
+    from oxen import RemoteRepo, Workspace
+
+    from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
+    from transformers import pipeline
+    
+    # Import from our module
+    from rust_rl.prompts import RUST_SYSTEM_PROMPT
+
+    return (
+        AutoModelForCausalLM,
+        AutoTokenizer,
+        Path,
+        RemoteRepo,
+        RUST_SYSTEM_PROMPT,
+        TextStreamer,
+        Workspace,
+        mo,
+        os,
+        pd,
+    )
+
+
+@app.cell
 def _(
     AutoModelForCausalLM,
     AutoTokenizer,
     RemoteRepo,
-    SYSTEM_PROMPT,
+    RUST_SYSTEM_PROMPT,
     TextStreamer,
     mo,
     model_name,
@@ -93,7 +121,7 @@ def _(
         for index, row in df.iterrows():
             print(row)
             messages = [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": RUST_SYSTEM_PROMPT},
                 # {"role": "system", "content": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."},
                 # {"role": "user", "content": f"{SYSTEM_PROMPT}{row['rust_prompt']}"}
                 {"role": "user", "content": f"{row['rust_prompt']}\n"},
@@ -162,67 +190,6 @@ def _(Path, RemoteRepo, Workspace, os, pd):
                 print(f"Did not commit: {e}")
             return result_df
     return (save_results_to_oxen,)
-
-
-@app.cell
-def _():
-    SYSTEM_PROMPT = """You are a pragmatic Rust programmer who enjoys test driven development. Given the following question, write a Rust function to complete the task. Make the code simple and easy to understand. The code should pass `cargo build` and `cargo clippy`. Try to limit library usage to the standard library std. Be careful with your types, and try to limit yourself to the basic built in types and standard library functions. When writing the function you can think through how to solve the problem and perform reasoning in the comments above the function.
-
-    Then write unit tests for the function you defined. Write multiple unit tests for the function. The tests should be a simple line delimited list of assert! or assert_eq! statements. When writing the unit tests you can have comments specifying what you are testing in plain english. The tests should use super::*.
-
-
-    An example output should look like the following:
-
-    ```rust
-    /// Reasoning goes here
-    /// and can be multi-line
-    fn add_nums(x: i32, y: i32) -> i32 {
-      x + y
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-
-        #[test]
-        fn test_add_nums() {
-            // Test adding positive numbers
-            assert_eq!(add_nums(4, 2), 6);
-            // Test adding a positive and negative number
-            assert_eq!(add_nums(4, -2), 2);
-            // Test adding two negative numbers
-            assert_eq!(add_nums(-12, -1), -13);
-        }
-    }
-    ```
-
-    Make sure to only respond with a single  ```rust``` block. The unit tests must be defined inside the mod tests {} module. Make sure to import any standard library modules that you need. Do not add a main function.
-    """
-    return (SYSTEM_PROMPT,)
-
-
-@app.cell
-def _():
-    import os
-    import marimo as mo
-    import pandas as pd
-    from pathlib import Path
-    from oxen import RemoteRepo, Workspace
-
-    from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
-    from transformers import pipeline
-
-    return (
-        AutoModelForCausalLM,
-        AutoTokenizer,
-        Path,
-        RemoteRepo,
-        TextStreamer,
-        Workspace,
-        mo,
-        os,
-        pd,
-    )
 
 
 @app.cell

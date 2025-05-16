@@ -18,6 +18,7 @@ This project uses Generative Reinforcement Learning from Policy Optimization (GR
 - **Library Code**:
   - `src/rust_rl`: Main package containing modular components:
     - `dataset`: Dataset handling utilities
+    - `evaluation`: Code evaluation and visualization utilities
     - `oxen_utils`: Oxen experiment and logging utilities
     - `prompts`: System prompts for Rust code generation
     - `reward_functions`: Reward functions for evaluating Rust code quality
