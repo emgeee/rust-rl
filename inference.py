@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.13.8"
+__generated_with = "0.13.9"
 app = marimo.App(width="medium")
 
 
@@ -16,9 +16,9 @@ def _(mo):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(mo):
-    model_name = mo.ui.text(value="Qwen/Qwen3-4B", full_width=True)
+    model_name = mo.ui.text(value="mgreen/QWEN-2.5-1.5B-instruct-rust-ft-8800", full_width=True)
     oxen_repo_name = mo.ui.text(value="mgreen/qwen3-rust-finetune", full_width=True)
     oxen_dataset_name = mo.ui.text(value="qwen3-rust-finetune/cargo_test_passed_eval.parquet", full_width=True)
 
@@ -55,7 +55,7 @@ def _():
 
     from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
     from transformers import pipeline
-    
+
     # Import from our module
     from rust_rl.prompts import RUST_SYSTEM_PROMPT
 
@@ -63,8 +63,8 @@ def _():
         AutoModelForCausalLM,
         AutoTokenizer,
         Path,
-        RemoteRepo,
         RUST_SYSTEM_PROMPT,
+        RemoteRepo,
         TextStreamer,
         Workspace,
         mo,
@@ -77,8 +77,8 @@ def _():
 def _(
     AutoModelForCausalLM,
     AutoTokenizer,
-    RemoteRepo,
     RUST_SYSTEM_PROMPT,
+    RemoteRepo,
     TextStreamer,
     mo,
     model_name,
