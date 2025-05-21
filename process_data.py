@@ -5,20 +5,19 @@ app = marimo.App(width="medium")
 
 
 @app.cell
-def _(RemoteRepo, os, oxen):
-    # Connect your client
-    ox_repo = RemoteRepo("ox/Rust")
-
+def _(os):
+    # Setup data paths
     repo_name = "qwen3-rust-finetune"
-    if os.path.exists(repo_name):
-      # if you already have a local copy of the repository, you can load it
-      repo = oxen.Repo(repo_name)
-    else:
-      # if you don't have a local copy of the repository, you can clone it
-      repo = oxen.clone(f"mgreen/{repo_name}")
-
-    # Pull the latest changes from the remote repository
-    repo.pull()
+    
+    # Create directories if they don't exist
+    if not os.path.exists(repo_name):
+        os.makedirs(repo_name, exist_ok=True)
+    
+    # Create results directory if it doesn't exist
+    results_dir = f"{repo_name}/results"
+    if not os.path.exists(results_dir):
+        os.makedirs(results_dir, exist_ok=True)
+        
     return
 
 
@@ -52,13 +51,8 @@ def _():
 
     from datasets import load_dataset, Dataset
 
-    import oxen
-    from oxen import RemoteRepo
-    from oxen import Repo
-    from oxen.remote_repo import create_repo
-
     import polars as pl
-    return RemoteRepo, os, oxen, pl
+    return os, pl
 
 
 if __name__ == "__main__":

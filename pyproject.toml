@@ -10,7 +10,6 @@ dependencies = [
     "jupyterlab>=4.4.2",
     "marimo>=0.13.9",
     "matplotlib>=3.10.3",
-    "oxenai>=0.34.2",
     "peft>=0.15.2",
     "polars>=1.29.0",
     "protobuf>=6.30.2",

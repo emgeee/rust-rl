@@ -2,7 +2,7 @@
 
 This project uses Generative Reinforcement Learning from Policy Optimization (GRPO) to finetune Qwen3 to write better Rust code.
 
-Inspiration and much code taken from https://www.oxen.ai/blog/training-a-rust-1-5b-coder-lm-with-reinforcement-learning-grpo
+This project is inspired by reinforcement learning approaches to improve code generation models.
 
 ## Project Structure
 
@@ -15,7 +15,7 @@ rust-rl/
 │       ├── __init__.py
 │       ├── dataset/        # Dataset handling utilities
 │       ├── evaluation/     # Code evaluation utilities
-│       ├── oxen_utils/     # Oxen experiment and logging utilities
+│       ├── experiment_utils/ # Experiment and logging utilities
 │       ├── prompts/        # System prompts for Rust code generation
 │       └── reward_functions/ # Reward functions for evaluating Rust code
 ├── scripts/              # Helper scripts for common operations
@@ -69,10 +69,10 @@ For training and evaluation outside of Marimo notebooks:
 
 ```bash
 # Training
-python train_script.py --model-name "Qwen/Qwen2.5-Coder-1.5B-Instruct" --oxen-repo "mgreen/rust-rl"
+python train_script.py --model-name "Qwen/Qwen2.5-Coder-1.5B-Instruct" --output-dir "outputs"
 
 # Evaluation
-python evaluate_script.py --model-name "Qwen3-1.5B" --oxen-repo "mgreen/rust-rl"
+python evaluate_script.py --model-name "Qwen3-1.5B" --output-dir "outputs"
 
 # Or use the helper scripts
 ./scripts/train_1_5b.sh
@@ -82,4 +82,4 @@ python evaluate_script.py --model-name "Qwen3-1.5B" --oxen-repo "mgreen/rust-rl"
 
 ## License
 
-This project is inspired by and contains code from the Oxen.ai blog post on training a Rust coder with reinforcement learning.
+This project is open source and inspired by approaches to training language models with reinforcement learning for code generation.

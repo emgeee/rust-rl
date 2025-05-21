@@ -19,7 +19,7 @@ This project uses Generative Reinforcement Learning from Policy Optimization (GR
   - `src/rust_rl`: Main package containing modular components:
     - `dataset`: Dataset handling utilities
     - `evaluation`: Code evaluation and visualization utilities
-    - `oxen_utils`: Oxen experiment and logging utilities
+    - `experiment_utils`: Experiment and logging utilities
     - `prompts`: System prompts for Rust code generation
     - `reward_functions`: Reward functions for evaluating Rust code quality
 
@@ -79,5 +79,5 @@ The training uses multiple reward signals to evaluate code quality:
 The project relies on several key libraries:
 - transformers and trl for model handling and training
 - peft for efficient fine-tuning
-- oxenai and wandb for experiment tracking
+- wandb for experiment tracking
 - marimo for interactive notebooks

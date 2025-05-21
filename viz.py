@@ -12,7 +12,6 @@ def _():
     import matplotlib.pyplot as plt
     from datetime import datetime
     from typing import Optional
-    from oxen import RemoteRepo
     import os
     from pathlib import Path
     return Optional, Path, datetime, json, mo, pd, plt
@@ -58,17 +57,11 @@ def _(experiment, plot_file):
 @app.cell
 def _(Path, mo, plot_rolling_average, results_dir):
     def plot_file(experiment: str, filename: str, title: str):
-        # repo = RemoteRepo("ox/Rust")
-        # path = Path(f"outputs/{experiment}/{filename}")
-        # print(f"Downloading {path.name}")
-
-        # make the results dir if it doesn't exist
-        # os.makedirs(results_dir, exist_ok=True)
+        # Ensure the results directory exists
+        os.makedirs(results_dir, exist_ok=True)
 
         output_file = Path(results_dir) / experiment / filename
-        # repo.download(path, revision=experiment, dst=output_file)
-        print(output_file)
-
+        print(f"Reading file: {output_file}")
 
         image_name = filename.replace('.jsonl', '') + "_rolling_average.png"
         output_image_file = Path(results_dir) / image_name

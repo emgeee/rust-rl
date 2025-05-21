@@ -24,7 +24,7 @@ def _(mo):
         r"""
     # Rust Eval 🦀
 
-    This is an example of writing custom eval code that pulls a data frame from an oxen repo, then running code on it. In this case we have a data frame with columns `rust_code`, `rust_test_list` and run `cargo build`, `cargo clippy`, and `cargo test` then save the results.
+    This is an example of writing custom eval code that runs evaluation on generated Rust code. In this case we have a data frame with columns `rust_code`, `rust_test_list` and run `cargo build`, `cargo clippy`, and `cargo test` then save the results.
 
     The predictions file is generated from the `inference.py` script
     """

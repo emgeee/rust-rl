@@ -18,22 +18,18 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    model_name = mo.ui.text(value="mgreen/QWEN-2.5-1.5B-instruct-rust-ft-8800", full_width=True)
-    oxen_repo_name = mo.ui.text(value="mgreen/qwen3-rust-finetune", full_width=True)
-    oxen_dataset_name = mo.ui.text(value="qwen3-rust-finetune/cargo_test_passed_eval.parquet", full_width=True)
-
+    model_name = mo.ui.text(value="Qwen/Qwen2.5-Coder-1.5B-Instruct", full_width=True)
+    dataset_path = mo.ui.text(value="qwen3-rust-finetune/cargo_test_passed_eval.parquet", full_width=True)
+    
     run_form = mo.md(
         """
         Model Name
         {model_name}
-        Oxen Repo Name
-        {oxen_repo_name}
-        Dataset Name
-        {oxen_dataset_name}
+        Dataset Path
+        {dataset_path}
         """
     ).batch(
-        oxen_repo_name=oxen_repo_name,
-        oxen_dataset_name=oxen_dataset_name,
+        dataset_path=dataset_path,
         model_name=model_name,
     ).form(
         submit_button_label="Predict",
@@ -42,7 +38,7 @@ def _(mo):
         clear_button_label="Reset"
     )
     run_form
-    return model_name, oxen_dataset_name, oxen_repo_name, run_form
+    return model_name, dataset_path, run_form
 
 
 @app.cell
@@ -51,7 +47,6 @@ def _():
     import marimo as mo
     import pandas as pd
     from pathlib import Path
-    from oxen import RemoteRepo, Workspace
 
     from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
     from transformers import pipeline
@@ -64,9 +59,7 @@ def _():
         AutoTokenizer,
         Path,
         RUST_SYSTEM_PROMPT,
-        RemoteRepo,
         TextStreamer,
-        Workspace,
         mo,
         os,
         pd,
@@ -78,37 +71,37 @@ def _(
     AutoModelForCausalLM,
     AutoTokenizer,
     RUST_SYSTEM_PROMPT,
-    RemoteRepo,
     TextStreamer,
     mo,
     model_name,
     os,
-    oxen_dataset_name,
-    oxen_repo_name,
+    dataset_path,
     pd,
     run_form,
-    save_results_to_oxen,
+    save_results,
 ):
     # If the button is not pressed, stop execution
     mo.stop(run_form.value is None)
 
-    repo = RemoteRepo(oxen_repo_name.value)
-    path = oxen_dataset_name.value
+    path = dataset_path.value
 
     if not os.path.exists(path):
-        print(f"Downloading {path}")
-        repo.download(path)
+        print(f"File not found: {path}")
+        mo.stop()
     else:
-        print(f"Already have {path}")
+        print(f"Using dataset: {path}")
 
     device = "mps" # Fastest on Mac right now
     # device = "cuda"
 
     model_name_str = model_name.value
-    print(f"Downloading {model_name_str}")
+    print(f"Loading model: {model_name_str}")
 
-    output_model_name = model_name_str.split("/")[1]
-    output_path = f"qwen3-rust-finetune/results/{output_model_name}/temp_predictions_code_and_tests.parquet"
+    output_model_name = model_name_str.split("/")[-1]
+    output_path = f"qwen3-rust-finetune/results/{output_model_name}/predictions_code_and_tests.parquet"
+
+    # Create output directory if it doesn't exist
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     tokenizer = AutoTokenizer.from_pretrained(model_name_str)
     model = AutoModelForCausalLM.from_pretrained(model_name_str).to(device)
@@ -156,15 +149,15 @@ def _(
                 }
             )
             if index % save_every == 0:
-                save_results_to_oxen(repo, results, output_path, model_name_str)
+                save_results(results, output_path)
             bar.update()
-    save_results_to_oxen(repo, results, output_path, model_name_str)
+    save_results(results, output_path)
     return
 
 
 @app.cell
-def _(Path, RemoteRepo, Workspace, os, pd):
-    def save_results_to_oxen(repo: RemoteRepo, results, filepath, model_name):
+def _(Path, os, pd):
+    def save_results(results, filepath):
         path = Path(filepath)
         if not os.path.exists(path.parent):
             os.makedirs(path.parent, exist_ok=True)
@@ -172,24 +165,8 @@ def _(Path, RemoteRepo, Workspace, os, pd):
         result_df = pd.DataFrame(results)
         print(f"Saving to {filepath}")
         result_df.to_parquet(filepath)
-        if False:
-            cleaned_model_name = model_name.split("/")[-1].replace('.', '-')
-            branch_name = f"results-{cleaned_model_name}"
-            # TODO: Need a branch_exists method on RemoteRepo
-            branches = [b.name for b in repo.branches()]
-            print("Got branches")
-            print(branches)
-            if not branch_name in branches:
-                print(f"Create branch: {branch_name}")
-                repo.create_checkout_branch(branch_name)
-            workspace = Workspace(repo, branch_name)
-            workspace.add(filepath, dst=str(path.parent))
-            try:
-                workspace.commit(f"Saving {len(results)} results to {filepath}")
-            except Exception as e:
-                print(f"Did not commit: {e}")
-            return result_df
-    return (save_results_to_oxen,)
+        return result_df
+    return (save_results,)
 
 
 @app.cell
