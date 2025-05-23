@@ -12,10 +12,10 @@ models:
   api:
     - model: "claude-3-5-sonnet-20241022"
       provider: "anthropic"
-    
+
     - model: "gpt-4o"
       provider: "openai"
-    
+
     - model: "grok-beta"
       provider: "xai"
 
@@ -24,11 +24,11 @@ models:
     - model: "Qwen/Qwen2.5-Coder-7B-Instruct"
       max_model_len: 4096
       tensor_parallel_size: 1  # Can override server default
-    
+
     - model: "deepseek-ai/deepseek-coder-6.7b-instruct"
       max_model_len: 4096
       tensor_parallel_size: 1
-    
+
     - model: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
       max_model_len: 2048
 
