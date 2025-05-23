@@ -37,6 +37,10 @@ class ModelFactory:
             else:
                 config_dict["vllm_url"] = "http://localhost:8000"  # Default fallback
             
+            # Add dynamic server reference if available
+            if '_dynamic_server' in generation_params:
+                config_dict["_dynamic_server"] = generation_params['_dynamic_server']
+            
             return VLLMModelProvider(
                 name=model_config.name,
                 model_id=model_config.model_id,
@@ -47,8 +51,9 @@ class ModelFactory:
 class InferenceRunner:
     """Runs inference for multiple models on the evaluation dataset"""
     
-    def __init__(self, config: UnifiedConfig):
+    def __init__(self, config: UnifiedConfig, dynamic_server=None):
         self.config = config
+        self.dynamic_server = dynamic_server
         self.dataset = None
         self.load_dataset()
     
@@ -87,6 +92,8 @@ class InferenceRunner:
             print(f"Creating model provider for {model_config.name}")
             generation_params = self.config.generation_params.copy()
             generation_params['_unified_config'] = self.config  # Pass config for vLLM URL
+            if self.dynamic_server:
+                generation_params['_dynamic_server'] = self.dynamic_server
             model_provider = ModelFactory.create_model(model_config, generation_params)
             
             # Check if model is available

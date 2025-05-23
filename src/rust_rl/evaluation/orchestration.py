@@ -186,9 +186,19 @@ class VLLMServerManager:
 class EvaluationOrchestrator:
     """Main orchestrator for evaluation pipeline - moved from multi_model_eval.py"""
     
-    def __init__(self, config: UnifiedConfig):
+    def __init__(self, config: UnifiedConfig, use_dynamic_server: bool = False):
         self.config = config
-        self.inference_runner = InferenceRunner(config)
+        self.use_dynamic_server = use_dynamic_server
+        self.dynamic_server = None
+        self.dynamic_queue = None
+        
+        # Initialize dynamic server if requested
+        if use_dynamic_server:
+            from .dynamic_model_server import DynamicModelServer, ModelLoadQueue
+            self.dynamic_server = DynamicModelServer(config)
+            self.dynamic_queue = ModelLoadQueue(self.dynamic_server)
+        
+        self.inference_runner = InferenceRunner(config, self.dynamic_queue)
         self.eval_runner = EvaluationRunner(config)
         self.visualizer = MultiModelVisualizer(config)
         self.server_manager = VLLMServerManager(config)
@@ -228,12 +238,18 @@ class EvaluationOrchestrator:
         if not vllm_models:
             return True  # No vLLM models needed
         
+        # If using dynamic server, it will handle model loading automatically
+        if self.use_dynamic_server:
+            print(f"🤖 Dynamic server mode: Models will be loaded automatically")
+            return True
+        
         server_running = self.server_manager.is_running()
         print(f"🖥️  vLLM Server status: {'✅ Running' if server_running else '❌ Not running'}")
         
         if not server_running:
             print("⚠️  Warning: vLLM server not running. vLLM models will fail.")
             print("💡 Start server with: python start_inference_server.py --model <model_id>")
+            print("💡 Or use dynamic server: python start_dynamic_server.py")
             return False
         
         return True

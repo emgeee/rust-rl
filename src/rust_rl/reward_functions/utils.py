@@ -156,7 +156,7 @@ def setup_and_test_rust_project(row, tools):
     Sets up a Rust project from template and runs tests for a single row of data
     """
     # Create temporary project directory
-    project_dir = Path("outputs") / Path("tests") / Path(f"temp_rust_project_{uuid4()}")
+    project_dir = Path("outputs") / Path("tests") / Path(f"rust_project_{uuid4()}")
     project_dir_src = project_dir / Path("src")
 
     # mkdirs if they don't exist

@@ -13,24 +13,36 @@ models:
     - model: "claude-3-5-sonnet-20241022"
       provider: "anthropic"
 
+    - model: "claude-3-7-sonnet-20250109"
+      provider: "anthropic"
+
+    - model: "claude-4-20250514"
+      provider: "anthropic"
+
     - model: "gpt-4o"
       provider: "openai"
 
-    - model: "grok-beta"
-      provider: "xai"
+    - model: "gpt-4.1-turbo"
+      provider: "openai"
+
+    - model: "o1-mini"
+      provider: "openai"
+
+    # - model: "grok-beta"
+    #   provider: "xai"
 
   vllm:
     # These models will be served by the vLLM server and used by client
     - model: "Qwen/Qwen2.5-Coder-7B-Instruct"
-      max_model_len: 4096
+      max_model_len: 32768
       tensor_parallel_size: 1  # Can override server default
 
     - model: "deepseek-ai/deepseek-coder-6.7b-instruct"
-      max_model_len: 4096
+      max_model_len: 16384
       tensor_parallel_size: 1
 
     - model: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
-      max_model_len: 2048
+      max_model_len: 32768
 
 generation_params:
   max_new_tokens: 1024

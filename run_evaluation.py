@@ -68,6 +68,11 @@ def main():
         action="store_true",
         help="Show what would be done without running"
     )
+    parser.add_argument(
+        "--dynamic-server",
+        action="store_true",
+        help="Use dynamic model server (automatically loads models on demand)"
+    )
     
     args = parser.parse_args()
     
@@ -82,7 +87,7 @@ def main():
     
     try:
         config = UnifiedConfig.from_yaml(args.config)
-        orchestrator = EvaluationOrchestrator(config)
+        orchestrator = EvaluationOrchestrator(config, use_dynamic_server=args.dynamic_server)
         
         print("🦀 Rust Code Evaluation Pipeline")
         print("=" * 50)

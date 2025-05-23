@@ -9,7 +9,7 @@ This project uses Generative Reinforcement Learning from Policy Optimization (GR
 ## Repository Structure
 
 - **Main Scripts**:
-  - `start_inference_server.py`: Start vLLM inference server for model serving
+  - `start_vllm_server.py`: Unified vLLM server script (traditional or dynamic mode)
   - `run_evaluation.py`: Run complete evaluation pipeline (inference + evaluation + visualization)
   - `process_data.py`: Marimo notebook for data processing and analysis
   - `train_script.py`: Training script for GRPO fine-tuning
@@ -54,9 +54,19 @@ This starts the Marimo server with a headless configuration on port 2700 with th
 
 ### Evaluation Pipeline
 
+**Option 1: Dynamic Server (Recommended)**
+```bash
+# Run full pipeline with automatic model loading
+python run_evaluation.py --dynamic-server --all
+
+# Run specific models with dynamic loading  
+python run_evaluation.py --dynamic-server --all --models "claude-3-5-sonnet-20241022" "qwen-qwen2.5-coder-7b-instruct"
+```
+
+**Option 2: Traditional Server**
 1. **Start Inference Server** (if using vLLM models):
    ```bash
-   python start_inference_server.py --model "Qwen/Qwen2.5-Coder-7B-Instruct"
+   python start_vllm_server.py --model "Qwen/Qwen2.5-Coder-7B-Instruct"
    ```
 
 2. **Run Complete Evaluation Pipeline**:
@@ -72,6 +82,27 @@ This starts the Marimo server with a headless configuration on port 2700 with th
    python run_evaluation.py --eval-only
    python run_evaluation.py --viz-only
    ```
+
+**vLLM Server Management**
+```bash
+# Start dynamic server
+python start_vllm_server.py --dynamic
+
+# Start traditional server with specific model
+python start_vllm_server.py --model "Qwen/Qwen2.5-Coder-7B-Instruct"
+
+# Interactive monitoring mode (dynamic only)
+python start_vllm_server.py --dynamic --interactive
+
+# Check status
+python start_vllm_server.py --status
+
+# List available models
+python start_vllm_server.py --list
+
+# Stop server
+python start_vllm_server.py --stop
+```
 
 ### Training Pipeline
 
