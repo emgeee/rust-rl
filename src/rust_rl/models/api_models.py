@@ -24,7 +24,8 @@ class APIModelProvider(ModelProvider):
         key_map = {
             "anthropic": "ANTHROPIC_API_KEY",
             "openai": "OPENAI_API_KEY", 
-            "xai": "XAI_API_KEY"
+            "xai": "XAI_API_KEY",
+            "google": "GOOGLE_API_KEY"
         }
         key_name = key_map.get(self.provider)
         if not key_name:
@@ -40,7 +41,8 @@ class APIModelProvider(ModelProvider):
         url_map = {
             "anthropic": "https://api.anthropic.com/v1/messages",
             "openai": "https://api.openai.com/v1/chat/completions",
-            "xai": "https://api.x.ai/v1/chat/completions"
+            "xai": "https://api.x.ai/v1/chat/completions",
+            "google": "https://generativelanguage.googleapis.com/v1beta/models"
         }
         return url_map.get(self.provider)
     
@@ -52,6 +54,8 @@ class APIModelProvider(ModelProvider):
             return self._generate_openai(prompt, system_prompt)
         elif self.provider == "xai":
             return self._generate_xai(prompt, system_prompt)
+        elif self.provider == "google":
+            return self._generate_google(prompt, system_prompt)
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
     
@@ -121,6 +125,44 @@ class APIModelProvider(ModelProvider):
         
         response = self._make_request(self.base_url, headers, data)
         return response.json()["choices"][0]["message"]["content"]
+    
+    def _generate_google(self, prompt: str, system_prompt: str = None) -> str:
+        """Generate using Google Gemini API"""
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        # Build the URL with API key as a query parameter
+        url = f"{self.base_url}/{self.model_id}:generateContent?key={self.api_key}"
+        
+        # Build content parts
+        parts = []
+        if system_prompt:
+            parts.append({"text": system_prompt})
+        parts.append({"text": prompt})
+        
+        data = {
+            "contents": [
+                {
+                    "parts": parts
+                }
+            ],
+            "generationConfig": {
+                "maxOutputTokens": self.config.get("max_new_tokens", 1024),
+                "temperature": self.config.get("temperature", 0.2),
+                "topP": self.config.get("top_p", 0.9)
+            }
+        }
+        
+        response = self._make_request(url, headers, data)
+        response_json = response.json()
+        
+        if "candidates" in response_json and len(response_json["candidates"]) > 0:
+            candidate = response_json["candidates"][0]
+            if "content" in candidate and "parts" in candidate["content"]:
+                return candidate["content"]["parts"][0]["text"]
+        
+        raise ValueError("Invalid response format from Google Gemini API")
     
     def _make_request(self, url: str, headers: Dict, data: Dict, max_retries: int = 3) -> requests.Response:
         """Make API request with retry logic"""

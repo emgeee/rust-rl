@@ -22,7 +22,7 @@ class ModelFactory:
         config_dict = model_config.to_dict()
         config_dict.update(generation_params)
         
-        if model_config.provider in ["anthropic", "openai", "xai"]:
+        if model_config.provider in ["anthropic", "openai", "xai", "google"]:
             return APIModelProvider(
                 name=model_config.name,
                 model_id=model_config.model_id,
