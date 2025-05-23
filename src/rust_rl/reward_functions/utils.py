@@ -4,6 +4,8 @@ from pathlib import Path
 import shutil
 from uuid import uuid4
 
+from ..common.utils import ensure_dir
+
 class RustTool:
     """
     Tool for running Rust cargo commands on a project
@@ -154,19 +156,27 @@ edition = "2021"
 def setup_and_test_rust_project(row, tools):
     """
     Sets up a Rust project from template and runs tests for a single row of data
+    
+    Args:
+        row: Dictionary containing Rust code in either 'rust_code' or 'response' field
+        tools: List of RustTool objects to run on the project
+        
+    Returns:
+        Dictionary with test results from running tools
     """
     # Create temporary project directory
     project_dir = Path("outputs") / Path("tests") / Path(f"rust_project_{uuid4()}")
     project_dir_src = project_dir / Path("src")
 
     # mkdirs if they don't exist
-    project_dir_src.mkdir(parents=True, exist_ok=True)
+    ensure_dir(project_dir_src)
 
     # Read template
     template = template_rs_file()
 
-    # Replace placeholders
-    rust_code = extract_rust_code(row['rust_code'])
+    # Replace placeholders - handle both 'rust_code' and 'response' field names
+    code_content = row.get('rust_code') or row.get('response', '')
+    rust_code = extract_rust_code(code_content)
     template = template.replace("// {code}", rust_code)
 
     # Write the cargo project files

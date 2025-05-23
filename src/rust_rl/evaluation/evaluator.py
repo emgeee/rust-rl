@@ -7,25 +7,8 @@ from pathlib import Path
 import shutil
 from uuid import uuid4
 
-from ..reward_functions.utils import RustTool, template_rs_file, cargo_toml_file
-
-
-def extract_rust_code(rust_code: str) -> str:
-    """
-    Extract the Rust code from a markdown code block.
-    
-    Args:
-        rust_code: String containing Rust code, possibly within markdown code blocks
-        
-    Returns:
-        Extracted Rust code
-    """
-    if "```rust" in rust_code:
-        code = rust_code.split("```rust")[-1]
-        code = code.split("```")[0]
-        return code.strip()
-    else:
-        return rust_code
+from ..reward_functions.utils import RustTool, template_rs_file, cargo_toml_file, extract_rust_code, setup_and_test_rust_project as _setup_and_test_rust_project
+from ..common.utils import save_dataframe
 
 
 def setup_and_test_rust_project(row, tools):
@@ -33,45 +16,26 @@ def setup_and_test_rust_project(row, tools):
     Sets up a Rust project from template and runs tests for a single row of data.
     
     Args:
-        row: Dictionary containing response with Rust code
+        row: Dictionary containing response with Rust code (expects "response" field)
         tools: List of RustTool objects to run on the project
         
     Returns:
         Dictionary with test results
     """
-    # Create temporary project directory
-    project_dir = Path("outputs") / Path("tests") / Path(f"rust_project_{uuid4()}")
-    project_dir_src = project_dir / Path("src")
-
-    # mkdirs if they don't exist
-    project_dir_src.mkdir(parents=True, exist_ok=True)
-
-    # Read template
-    template = template_rs_file()
-
-    # Replace placeholders
-    rust_code = extract_rust_code(row["response"])
-    template = template.replace("// {code}", rust_code)
-
-    print(template)
-
-    # Write the cargo project files
-    main_rs_path = project_dir_src / Path("main.rs")
-    with open(main_rs_path, "w") as f:
-        f.write(template)
-
-    cargo_file_path = project_dir / Path("Cargo.toml")
-    with open(cargo_file_path, "w") as f:
-        f.write(cargo_toml_file())
-
-    results = {"template": template}
-
-    for tool in tools:
-        results = tool.run(results, project_dir)
-
-    # Clean up
-    shutil.rmtree(project_dir)
-
+    # Use the utils version directly - it now handles both "response" and "rust_code" fields
+    results = _setup_and_test_rust_project(row, tools)
+    
+    # Add template to results for compatibility with existing code that expects it
+    if "template" not in results:
+        code_content = row.get('rust_code') or row.get('response', '')
+        rust_code = extract_rust_code(code_content)
+        template = template_rs_file()
+        template = template.replace("// {code}", rust_code)
+        results["template"] = template
+        
+        # Add debug print for compatibility
+        print(template)
+    
     return results
 
 
@@ -134,7 +98,7 @@ def evaluate_solutions(df, tools, output_file, progress_bar=None, max_rows=-1):
 
             if idx % 100 == 0:
                 results_df = pd.DataFrame(results).set_index("idx")
-                results_df.to_parquet(output_file)
+                save_dataframe(results_df, output_file)
 
         # Convert results to dataframe and merge with original
         results_df = pd.DataFrame(results).set_index("idx")
