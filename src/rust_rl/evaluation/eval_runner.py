@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 from tqdm import tqdm
 
 from ..reward_functions.utils import RustTool
-from .evaluator import evaluate_solutions
+from .evaluator import evaluate_solutions, print_evaluation_summary
 from .config import UnifiedConfig
 
 
@@ -43,6 +43,12 @@ class EvaluationRunner:
         # Check if results already exist
         if results_path.exists() and not force_rerun:
             print(f"Results already exist for {model_name}: {results_path}")
+            # Load and display statistics for existing results
+            try:
+                results_df = pd.read_parquet(results_path)
+                print_evaluation_summary(results_df, self.tools)
+            except Exception as e:
+                print(f"⚠️  Could not load existing results for summary: {e}")
             return True
         
         try:

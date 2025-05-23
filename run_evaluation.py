@@ -82,7 +82,8 @@ def main():
     
     try:
         config = UnifiedConfig.from_yaml(args.config)
-        orchestrator = EvaluationOrchestrator(config)
+        # Enable silent inference mode for cleaner progress bars
+        orchestrator = EvaluationOrchestrator(config, silent_inference=True)
         
         print("🦀 Rust Code Evaluation Pipeline")
         print("=" * 50)

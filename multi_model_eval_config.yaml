@@ -58,7 +58,7 @@ models:
       max_model_len: 32768
 
 generation_params:
-  max_new_tokens: 1024
+  max_new_tokens: 2048
   temperature: 0.2
   top_p: 0.9
 

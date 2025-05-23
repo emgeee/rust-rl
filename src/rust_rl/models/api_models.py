@@ -298,8 +298,6 @@ class APIModelProvider(ModelProvider):
                 if attempt == max_retries - 1:
                     raise e
                 wait_time = 2 ** attempt
-                print(f"Request failed (attempt {attempt + 1}/{max_retries}): {e}")
-                print(f"Retrying in {wait_time} seconds...")
                 time.sleep(wait_time)
     
     def is_available(self) -> bool:

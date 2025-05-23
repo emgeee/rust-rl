@@ -8,7 +8,7 @@ import shutil
 from uuid import uuid4
 
 from ..reward_functions.utils import RustTool, template_rs_file, cargo_toml_file, extract_rust_code, setup_and_test_rust_project as _setup_and_test_rust_project
-from ..common.utils import save_dataframe
+from ..common.utils import save_dataframe, load_dataframe
 
 
 def setup_and_test_rust_project(row, tools):
@@ -39,6 +39,59 @@ def setup_and_test_rust_project(row, tools):
     return results
 
 
+def print_evaluation_summary(results_df, tools):
+    """
+    Print comprehensive evaluation statistics from results dataframe.
+    
+    Args:
+        results_df: DataFrame with evaluation results
+        tools: List of RustTool objects used in evaluation
+    """
+    total_evaluated = len(results_df)
+    if total_evaluated == 0:
+        print("No evaluation results found.")
+        return
+    
+    # Calculate overall pass rate (all tools must pass)
+    total_passed = 0
+    tool_stats = {tool.name: {"passed": 0, "failed": 0} for tool in tools}
+    
+    for idx, row in results_df.iterrows():
+        num_tools = len(tools)
+        num_passed = 0
+        for tool in tools:
+            passed_col = f"{tool.name}_passed"
+            if passed_col in row and row[passed_col]:
+                num_passed += 1
+                tool_stats[tool.name]["passed"] += 1
+            else:
+                tool_stats[tool.name]["failed"] += 1
+        
+        if num_passed == num_tools:
+            total_passed += 1
+    
+    total_failed = total_evaluated - total_passed
+    overall_accuracy = total_passed / total_evaluated * 100 if total_evaluated > 0 else 0
+    
+    print("\n" + "="*60)
+    print("🦀 EVALUATION SUMMARY (FROM EXISTING RESULTS)")
+    print("="*60)
+    
+    print(f"📊 Overall Results:")
+    print(f"   Total evaluated: {total_evaluated}")
+    print(f"   All tests passed: {total_passed} ({overall_accuracy:.1f}%)")
+    print(f"   Some tests failed: {total_failed} ({100-overall_accuracy:.1f}%)")
+    
+    print(f"\n📋 Individual Test Results:")
+    for tool in tools:
+        passed = tool_stats[tool.name]["passed"]
+        failed = tool_stats[tool.name]["failed"]
+        tool_accuracy = passed / total_evaluated * 100 if total_evaluated > 0 else 0
+        print(f"   {tool.name}: {passed}/{total_evaluated} passed ({tool_accuracy:.1f}%)")
+    
+    print("="*60)
+
+
 def evaluate_solutions(df, tools, output_file, progress_bar=None, max_rows=-1):
     """
     Evaluates all solutions in the dataframe.
@@ -53,11 +106,27 @@ def evaluate_solutions(df, tools, output_file, progress_bar=None, max_rows=-1):
     Returns:
         DataFrame with added tool results columns
     """
+    # Check if results already exist
+    output_path = Path(output_file)
+    if output_path.exists():
+        print(f"📁 Found existing results at {output_file}")
+        try:
+            existing_results = load_dataframe(output_file)
+            print(f"✅ Loaded {len(existing_results)} existing evaluation results")
+            print_evaluation_summary(existing_results, tools)
+            return existing_results
+        except Exception as e:
+            print(f"⚠️  Failed to load existing results: {e}")
+            print("🔄 Proceeding with fresh evaluation...")
+    
     results = []
 
     total_passed = 0
     total_failed = 0
     num_rows = len(df) if max_rows < 0 else max_rows
+    
+    # Track per-tool statistics
+    tool_stats = {tool.name: {"passed": 0, "failed": 0} for tool in tools}
     
     progress_context = progress_bar(total=num_rows) if progress_bar else None
     bar = progress_context.__enter__() if progress_context else None
@@ -80,6 +149,10 @@ def evaluate_solutions(df, tools, output_file, progress_bar=None, max_rows=-1):
                 passed = test_results[f"{tool.name}_passed"]
                 if passed:
                     num_passed += 1
+                    tool_stats[tool.name]["passed"] += 1
+                else:
+                    tool_stats[tool.name]["failed"] += 1
+                    
             all_passed = num_passed == num_tools
             print(f"Row {idx}: {num_passed}/{num_tools} passed")
             if all_passed:
@@ -94,7 +167,9 @@ def evaluate_solutions(df, tools, output_file, progress_bar=None, max_rows=-1):
             print(percent_passed_str)
             
             if bar:
-                bar.update(title=percent_passed_str)
+                bar.update(1)
+                if hasattr(bar, 'set_description'):
+                    bar.set_description(percent_passed_str)
 
             if idx % 100 == 0:
                 results_df = pd.DataFrame(results).set_index("idx")
@@ -102,6 +177,29 @@ def evaluate_solutions(df, tools, output_file, progress_bar=None, max_rows=-1):
 
         # Convert results to dataframe and merge with original
         results_df = pd.DataFrame(results).set_index("idx")
+        
+        # Print final comprehensive statistics
+        print("\n" + "="*60)
+        print("🦀 EVALUATION SUMMARY")
+        print("="*60)
+        
+        total_evaluated = len(results)
+        overall_accuracy = total_passed / total_evaluated * 100 if total_evaluated > 0 else 0
+        
+        print(f"📊 Overall Results:")
+        print(f"   Total evaluated: {total_evaluated}")
+        print(f"   All tests passed: {total_passed} ({overall_accuracy:.1f}%)")
+        print(f"   Some tests failed: {total_failed} ({100-overall_accuracy:.1f}%)")
+        
+        print(f"\n📋 Individual Test Results:")
+        for tool in tools:
+            passed = tool_stats[tool.name]["passed"]
+            failed = tool_stats[tool.name]["failed"]
+            tool_accuracy = passed / total_evaluated * 100 if total_evaluated > 0 else 0
+            print(f"   {tool.name}: {passed}/{total_evaluated} passed ({tool_accuracy:.1f}%)")
+        
+        print("="*60)
+        
         return results_df
     
     finally:

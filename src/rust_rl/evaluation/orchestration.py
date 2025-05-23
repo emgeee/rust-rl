@@ -186,8 +186,9 @@ class VLLMServerManager:
 class EvaluationOrchestrator:
     """Main orchestrator for evaluation pipeline - moved from multi_model_eval.py"""
     
-    def __init__(self, config: UnifiedConfig):
+    def __init__(self, config: UnifiedConfig, silent_inference: bool = False):
         self.config = config
+        self.silent_inference = silent_inference
         
         self.inference_runner = InferenceRunner(config)
         self.eval_runner = EvaluationRunner(config)
@@ -241,27 +242,29 @@ class EvaluationOrchestrator:
     
     def run_inference_stage(self, selected_models: List[str] = None, force_rerun: bool = False):
         """Run inference stage"""
-        print("\n" + "=" * 60)
-        print("🤖 INFERENCE STAGE")
-        print("=" * 60)
+        if not self.silent_inference:
+            print("\n" + "=" * 60)
+            print("🤖 INFERENCE STAGE")
+            print("=" * 60)
         
         inference_results = self.inference_runner.run_inference_for_all_models(
             force_rerun=force_rerun,
             selected_models=selected_models
         )
         
-        # Report results
-        successful_models = [m for m, success in inference_results.items() if success]
-        failed_models = [m for m, success in inference_results.items() if not success]
-        
-        print(f"\n📊 Inference Results:")
-        print(f"   ✅ Successful: {len(successful_models)}")
-        if successful_models:
-            print(f"      {', '.join(successful_models)}")
-        
-        if failed_models:
-            print(f"   ❌ Failed: {len(failed_models)}")
-            print(f"      {', '.join(failed_models)}")
+        if not self.silent_inference:
+            # Report results
+            successful_models = [m for m, success in inference_results.items() if success]
+            failed_models = [m for m, success in inference_results.items() if not success]
+            
+            print(f"\n📊 Inference Results:")
+            print(f"   ✅ Successful: {len(successful_models)}")
+            if successful_models:
+                print(f"      {', '.join(successful_models)}")
+            
+            if failed_models:
+                print(f"   ❌ Failed: {len(failed_models)}")
+                print(f"      {', '.join(failed_models)}")
         
         return inference_results
     

@@ -63,9 +63,6 @@ class InferenceRunner:
         # Limit dataset rows if specified in config
         if self.config.eval_dataset_rows is not None:
             self.dataset = self.dataset.head(self.config.eval_dataset_rows)
-            print(f"Loaded dataset with {len(self.dataset)} samples (limited to {self.config.eval_dataset_rows} rows)")
-        else:
-            print(f"Loaded dataset with {len(self.dataset)} samples")
     
     def run_inference_for_model(self, model_config: ModelConfig, force_rerun: bool = False) -> bool:
         """
@@ -83,7 +80,6 @@ class InferenceRunner:
         
         # Check if results already exist
         if predictions_path.exists() and not force_rerun:
-            print(f"Predictions already exist for {model_config.name}: {predictions_path}")
             return True
         
         # Create output directory
@@ -91,7 +87,6 @@ class InferenceRunner:
         
         try:
             # Create model provider
-            print(f"Creating model provider for {model_config.name}")
             generation_params = self.config.generation_params.copy()
             generation_params['_unified_config'] = self.config  # Pass config for vLLM URL
             model_provider = ModelFactory.create_model(model_config, generation_params)
@@ -100,14 +95,11 @@ class InferenceRunner:
             if hasattr(model_provider, 'set_log_path'):
                 api_log_path = output_dir / "api_calls.jsonl"
                 model_provider.set_log_path(api_log_path)
-                print(f"API call logging enabled: {api_log_path}")
             
             # Check if model is available
             if not model_provider.is_available():
-                print(f"Model {model_config.name} is not available")
                 return False
             
-            print(f"Running inference for {model_config.name}")
             results = []
             
             # Progress bar
@@ -137,7 +129,6 @@ class InferenceRunner:
                         pbar.update(1)
                         
                     except Exception as e:
-                        print(f"Error generating response for {model_config.name}, task {row['task_id']}: {e}")
                         # Add failed result
                         result = {
                             "task_id": row["task_id"],
@@ -151,11 +142,9 @@ class InferenceRunner:
             
             # Save final results
             self._save_predictions(results, predictions_path)
-            print(f"Inference completed for {model_config.name}: {len(results)} predictions saved")
             return True
             
         except Exception as e:
-            print(f"Failed to run inference for {model_config.name}: {e}")
             return False
     
     def _save_predictions(self, results: List[Dict], filepath: Path):
@@ -182,18 +171,8 @@ class InferenceRunner:
         results = {}
         
         for model_config in all_models:
-            print(f"\n{'='*60}")
-            print(f"Running inference for: {model_config.name}")
-            print(f"Model ID: {model_config.model_id}")
-            print(f"{'='*60}")
-            
             success = self.run_inference_for_model(model_config, force_rerun)
             results[model_config.name] = success
-            
-            if success:
-                print(f"✅ {model_config.name}: SUCCESS")
-            else:
-                print(f"❌ {model_config.name}: FAILED")
         
         return results
     
