@@ -1,0 +1,49 @@
+# Server configuration
+server:
+  host: "localhost"
+  port: 8000
+  runtime:
+    gpu_memory_utilization: 0.9
+    enable_chunked_prefill: true
+    tensor_parallel_size: 1
+
+# All models configuration
+models:
+  api:
+    - model: "claude-3-5-sonnet-20241022"
+      provider: "anthropic"
+    
+    - model: "gpt-4o"
+      provider: "openai"
+    
+    - model: "grok-beta"
+      provider: "xai"
+
+  vllm:
+    # These models will be served by the vLLM server and used by client
+    - model: "Qwen/Qwen2.5-Coder-7B-Instruct"
+      max_model_len: 4096
+      tensor_parallel_size: 1  # Can override server default
+    
+    - model: "deepseek-ai/deepseek-coder-6.7b-instruct"
+      max_model_len: 4096
+      tensor_parallel_size: 1
+    
+    - model: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+      max_model_len: 2048
+
+generation_params:
+  max_new_tokens: 1024
+  temperature: 0.2
+  top_p: 0.9
+
+dataset:
+  path: "qwen3-rust-finetune/cargo_test_passed_eval.parquet"
+
+output:
+  base_dir: "qwen3-rust-finetune/outputs"
+
+evaluation:
+  tools: ["build", "clippy", "test"]
+  save_every: 10
+

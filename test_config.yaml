@@ -1,0 +1,20 @@
+models:
+  local:
+    - name: "test-local"
+      model_id: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+      device: "mps"
+
+generation_params:
+  max_new_tokens: 256
+  temperature: 0.2
+  top_p: 0.9
+
+dataset:
+  path: "qwen3-rust-finetune/test_eval.parquet"
+
+output:
+  base_dir: "qwen3-rust-finetune/outputs/test"
+
+evaluation:
+  tools: ["build", "clippy", "test"]
+  save_every: 2

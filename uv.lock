@@ -1796,33 +1796,6 @@ wheels = [
 ]
 
 [[package]]
-name = "oxenai"
-version = "0.34.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "fsspec" },
-    { name = "pandas" },
-    { name = "polars" },
-    { name = "pyarrow" },
-    { name = "requests" },
-    { name = "toml" },
-    { name = "tqdm" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f6/64/8b7bbf3b9b6a06dbdb399e4392689ccc3efa3ca806379579408508bbce89/oxenai-0.34.2.tar.gz", hash = "sha256:78d886e4772a177a7bb8a59ab5db4d5c9f17e0053f3e7701ba24b295f6c6891a", size = 95380407, upload_time = "2025-05-10T22:46:54.972Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/14/f9/564f986d2497552a7f574f31323892fb2c6e6453eef4463782f2a4b97c98/oxenai-0.34.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:2979210fda6e3b3a16bbc1e9188e55f1564e64af4876e1e190a1bb5ecabacb2a", size = 31022973, upload_time = "2025-05-09T18:25:47.991Z" },
-    { url = "https://files.pythonhosted.org/packages/38/6d/a1e389d3edc6a59c3c3f15595fb88155f2459700a637d3189f969bfe204f/oxenai-0.34.2-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:b3346f94c533139d8901d35aaf36a2b07de57c31d4035ae2c6c164d9d76169fd", size = 34692169, upload_time = "2025-05-09T18:25:50.913Z" },
-    { url = "https://files.pythonhosted.org/packages/1d/28/fee71f7d6fd437e6ed66369e4572150d677f7969cd9b7d3c74b262d022f8/oxenai-0.34.2-cp312-cp312-manylinux_2_35_x86_64.whl", hash = "sha256:ba3e3478c31ad7e79156a499c5df30f923996f8a9e6a8d242ace0b4b80eb8e4e", size = 38804737, upload_time = "2025-05-09T18:25:54.39Z" },
-    { url = "https://files.pythonhosted.org/packages/c1/aa/efe94b3e4b1fa262effcc221bf78c47a0dfb15e83276e670d512c89858ea/oxenai-0.34.2-cp312-cp312-manylinux_2_39_x86_64.whl", hash = "sha256:42a0c80077d37ad3092e1e378ba7edbb02b9dd1e88223189bdd25950414973f0", size = 39282325, upload_time = "2025-05-09T18:25:57.838Z" },
-    { url = "https://files.pythonhosted.org/packages/50/06/ef4a5b4df73d2d044124aab194d1869a4e3303a7a0945c2bdc2005820f05/oxenai-0.34.2-cp312-cp312-win_amd64.whl", hash = "sha256:b4c95fcf49f6ac96f5ce1ffe63ae680e4ac0df55c9c88d1a5a71bb8af6e08fef", size = 31252979, upload_time = "2025-05-09T18:26:00.651Z" },
-    { url = "https://files.pythonhosted.org/packages/5c/69/4af18e2b006be8486119c5b207896b90d4d1ed9a73e87ad1f643f0735a53/oxenai-0.34.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:146165009a7ae042add3a669f57f4753bd175731f4454aaced901a2cfb4a3cd4", size = 31022903, upload_time = "2025-05-09T18:26:03.297Z" },
-    { url = "https://files.pythonhosted.org/packages/53/90/aa6968bfc9fb22d6eea8235aacdceecaad5ea366e5af738c7099b559ee80/oxenai-0.34.2-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:f0f8981ff6073b38c9802f3ffe6c60c8887e076fe4d9528ecb561bfe1412c3a9", size = 34679702, upload_time = "2025-05-09T18:26:06.467Z" },
-    { url = "https://files.pythonhosted.org/packages/6f/fd/b57207c50fa08b2511654c2eafb13064178ec4c71d5c6b8472edbff28cca/oxenai-0.34.2-cp313-cp313-manylinux_2_35_x86_64.whl", hash = "sha256:660a5ada162c9d63eeb62dc0fbeeb54f742c43695464a25e016a0ad09661253d", size = 38804340, upload_time = "2025-05-09T18:26:09.621Z" },
-    { url = "https://files.pythonhosted.org/packages/43/70/9a51d31261862ca619ff9558d30aae4e467f4a08988699c939f41d9e02d9/oxenai-0.34.2-cp313-cp313-manylinux_2_39_x86_64.whl", hash = "sha256:e1b9eacc90659186d9f294a2ec0b8f730971e9c7fa566368bb04dfb1051d4c51", size = 39266359, upload_time = "2025-05-09T18:26:12.544Z" },
-    { url = "https://files.pythonhosted.org/packages/55/37/4c880396a88175b0bdc8f8a73897adc615a864714a12b0c54b40ae6ca078/oxenai-0.34.2-cp313-cp313-win_amd64.whl", hash = "sha256:90927c9663cdd86ebbf4796f87234e5a8a4703cb72b18d81e445ac82d4073f8b", size = 31250825, upload_time = "2025-05-09T18:26:15.704Z" },
-]
-
-[[package]]
 name = "packaging"
 version = "25.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2587,7 +2560,6 @@ dependencies = [
     { name = "jupyterlab" },
     { name = "marimo" },
     { name = "matplotlib" },
-    { name = "oxenai" },
     { name = "peft" },
     { name = "polars" },
     { name = "protobuf" },
@@ -2619,7 +2591,6 @@ requires-dist = [
     { name = "jupyterlab", specifier = ">=4.4.2" },
     { name = "marimo", specifier = ">=0.13.9" },
     { name = "matplotlib", specifier = ">=3.10.3" },
-    { name = "oxenai", specifier = ">=0.34.2" },
     { name = "peft", specifier = ">=0.15.2" },
     { name = "polars", specifier = ">=1.29.0" },
     { name = "protobuf", specifier = ">=6.30.2" },
@@ -2857,15 +2828,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/5f/aa/8ae85f69a9f6012c6f8011c6f4aa1c96154c816e9eea2e1b758601157833/tokenizers-0.21.1-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:e5a69c1a4496b81a5ee5d2c1f3f7fbdf95e90a0196101b0ee89ed9956b8a168f", size = 9384380, upload_time = "2025-03-13T10:51:16.526Z" },
     { url = "https://files.pythonhosted.org/packages/e8/5b/a5d98c89f747455e8b7a9504910c865d5e51da55e825a7ae641fb5ff0a58/tokenizers-0.21.1-cp39-abi3-win32.whl", hash = "sha256:1039a3a5734944e09de1d48761ade94e00d0fa760c0e0551151d4dd851ba63e3", size = 2239506, upload_time = "2025-03-13T10:51:20.643Z" },
     { url = "https://files.pythonhosted.org/packages/e6/b6/072a8e053ae600dcc2ac0da81a23548e3b523301a442a6ca900e92ac35be/tokenizers-0.21.1-cp39-abi3-win_amd64.whl", hash = "sha256:0f0dcbcc9f6e13e675a66d7a5f2f225a736745ce484c1a4e07476a89ccdad382", size = 2435481, upload_time = "2025-03-13T10:51:19.243Z" },
-]
-
-[[package]]
-name = "toml"
-version = "0.10.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/be/ba/1f744cdc819428fc6b5084ec34d9b30660f6f9daaf70eead706e3203ec3c/toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f", size = 22253, upload_time = "2020-11-01T01:40:22.204Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b", size = 16588, upload_time = "2020-11-01T01:40:20.672Z" },
 ]
 
 [[package]]

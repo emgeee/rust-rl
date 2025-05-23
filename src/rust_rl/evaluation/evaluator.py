@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 from uuid import uuid4
 
-from rust_rl.reward_functions.utils import RustTool, template_rs_file, cargo_toml_file
+from ..reward_functions.utils import RustTool, template_rs_file, cargo_toml_file
 
 
 def extract_rust_code(rust_code: str) -> str:
