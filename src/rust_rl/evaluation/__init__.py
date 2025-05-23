@@ -8,6 +8,7 @@ from .config import EvaluationConfig, ModelConfig
 from .inference_runner import InferenceRunner
 from .eval_runner import EvaluationRunner
 from .multi_model_visualize import MultiModelVisualizer
+from .orchestration import EvaluationOrchestrator, VLLMServerManager
 
 __all__ = [
     'evaluate_solutions',
@@ -19,4 +20,6 @@ __all__ = [
     'InferenceRunner',
     'EvaluationRunner',
     'MultiModelVisualizer',
+    'EvaluationOrchestrator',
+    'VLLMServerManager',
 ]
