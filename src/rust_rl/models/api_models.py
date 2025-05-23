@@ -4,7 +4,10 @@ API-based model providers (Claude, ChatGPT, Grok)
 
 import os
 import time
-from typing import Dict, Any
+import json
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Any, Optional
 import requests
 
 from .base import ModelProvider
@@ -18,6 +21,7 @@ class APIModelProvider(ModelProvider):
         self.provider = provider
         self.api_key = self._get_api_key()
         self.base_url = self._get_base_url()
+        self.log_path: Optional[Path] = None
         
     def _get_api_key(self) -> str:
         """Get API key from environment variables"""
@@ -46,6 +50,58 @@ class APIModelProvider(ModelProvider):
         }
         return url_map.get(self.provider)
     
+    def set_log_path(self, log_path: Path):
+        """Set path for API call logging"""
+        self.log_path = log_path
+        # Ensure parent directory exists
+        self.log_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    def _log_api_call(self, prompt: str, system_prompt: str, response: str, 
+                      input_tokens: int, output_tokens: int, duration: float, 
+                      response_json: Dict[str, Any] = None):
+        """Log API call details to JSONL file"""
+        if not self.log_path:
+            return
+        
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "model_name": self.name,
+            "model_id": self.model_id,
+            "provider": self.provider,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+            "duration_seconds": duration,
+            "prompt_length": len(prompt),
+            "system_prompt_length": len(system_prompt) if system_prompt else 0,
+            "response_length": len(response),
+            "config": {
+                "max_tokens": self.config.get("max_new_tokens", 1024),
+                "temperature": self.config.get("temperature", 0.2),
+                "top_p": self.config.get("top_p", 0.9)
+            }
+        }
+        
+        # Add provider-specific metadata
+        if response_json:
+            if self.provider == "anthropic" and "usage" in response_json:
+                log_entry["usage"] = response_json["usage"]
+            elif self.provider in ["openai", "xai"] and "usage" in response_json:
+                log_entry["usage"] = response_json["usage"]
+            elif self.provider == "google" and "usageMetadata" in response_json:
+                log_entry["usage"] = response_json["usageMetadata"]
+        
+        # Write to JSONL file
+        try:
+            with open(self.log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(log_entry) + "\n")
+        except Exception as e:
+            print(f"Warning: Failed to log API call: {e}")
+    
+    def _count_tokens_estimate(self, text: str) -> int:
+        """Rough token count estimation (4 chars per token average)"""
+        return len(text) // 4
+    
     def generate(self, prompt: str, system_prompt: str = None) -> str:
         """Generate response using API"""
         if self.provider == "anthropic":
@@ -61,6 +117,8 @@ class APIModelProvider(ModelProvider):
     
     def _generate_anthropic(self, prompt: str, system_prompt: str = None) -> str:
         """Generate using Anthropic Claude API"""
+        start_time = time.time()
+        
         headers = {
             "Content-Type": "application/json",
             "x-api-key": self.api_key,
@@ -80,10 +138,27 @@ class APIModelProvider(ModelProvider):
             data["system"] = system_prompt
         
         response = self._make_request(self.base_url, headers, data)
-        return response.json()["content"][0]["text"]
+        response_json = response.json()
+        response_text = response_json["content"][0]["text"]
+        
+        duration = time.time() - start_time
+        
+        # Extract token counts from response
+        input_tokens = response_json.get("usage", {}).get("input_tokens", 
+                                                        self._count_tokens_estimate(prompt + (system_prompt or "")))
+        output_tokens = response_json.get("usage", {}).get("output_tokens", 
+                                                         self._count_tokens_estimate(response_text))
+        
+        # Log the API call
+        self._log_api_call(prompt, system_prompt, response_text, 
+                          input_tokens, output_tokens, duration, response_json)
+        
+        return response_text
     
     def _generate_openai(self, prompt: str, system_prompt: str = None) -> str:
         """Generate using OpenAI API"""
+        start_time = time.time()
+        
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
@@ -102,10 +177,27 @@ class APIModelProvider(ModelProvider):
         }
         
         response = self._make_request(self.base_url, headers, data)
-        return response.json()["choices"][0]["message"]["content"]
+        response_json = response.json()
+        response_text = response_json["choices"][0]["message"]["content"]
+        
+        duration = time.time() - start_time
+        
+        # Extract token counts from response
+        input_tokens = response_json.get("usage", {}).get("prompt_tokens", 
+                                                        self._count_tokens_estimate(prompt + (system_prompt or "")))
+        output_tokens = response_json.get("usage", {}).get("completion_tokens", 
+                                                         self._count_tokens_estimate(response_text))
+        
+        # Log the API call
+        self._log_api_call(prompt, system_prompt, response_text, 
+                          input_tokens, output_tokens, duration, response_json)
+        
+        return response_text
     
     def _generate_xai(self, prompt: str, system_prompt: str = None) -> str:
         """Generate using xAI Grok API"""
+        start_time = time.time()
+        
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
@@ -124,10 +216,27 @@ class APIModelProvider(ModelProvider):
         }
         
         response = self._make_request(self.base_url, headers, data)
-        return response.json()["choices"][0]["message"]["content"]
+        response_json = response.json()
+        response_text = response_json["choices"][0]["message"]["content"]
+        
+        duration = time.time() - start_time
+        
+        # Extract token counts from response
+        input_tokens = response_json.get("usage", {}).get("prompt_tokens", 
+                                                        self._count_tokens_estimate(prompt + (system_prompt or "")))
+        output_tokens = response_json.get("usage", {}).get("completion_tokens", 
+                                                         self._count_tokens_estimate(response_text))
+        
+        # Log the API call
+        self._log_api_call(prompt, system_prompt, response_text, 
+                          input_tokens, output_tokens, duration, response_json)
+        
+        return response_text
     
     def _generate_google(self, prompt: str, system_prompt: str = None) -> str:
         """Generate using Google Gemini API"""
+        start_time = time.time()
+        
         headers = {
             "Content-Type": "application/json"
         }
@@ -157,10 +266,24 @@ class APIModelProvider(ModelProvider):
         response = self._make_request(url, headers, data)
         response_json = response.json()
         
+        duration = time.time() - start_time
+        
         if "candidates" in response_json and len(response_json["candidates"]) > 0:
             candidate = response_json["candidates"][0]
             if "content" in candidate and "parts" in candidate["content"]:
-                return candidate["content"]["parts"][0]["text"]
+                response_text = candidate["content"]["parts"][0]["text"]
+                
+                # Extract token counts from response
+                input_tokens = response_json.get("usageMetadata", {}).get("promptTokenCount", 
+                                                               self._count_tokens_estimate(prompt + (system_prompt or "")))
+                output_tokens = response_json.get("usageMetadata", {}).get("candidatesTokenCount", 
+                                                                         self._count_tokens_estimate(response_text))
+                
+                # Log the API call
+                self._log_api_call(prompt, system_prompt, response_text, 
+                                  input_tokens, output_tokens, duration, response_json)
+                
+                return response_text
         
         raise ValueError("Invalid response format from Google Gemini API")
     

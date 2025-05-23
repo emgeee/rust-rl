@@ -96,6 +96,12 @@ class InferenceRunner:
                 generation_params['_dynamic_server'] = self.dynamic_server
             model_provider = ModelFactory.create_model(model_config, generation_params)
             
+            # Set up API call logging for API models
+            if hasattr(model_provider, 'set_log_path'):
+                api_log_path = output_dir / "api_calls.jsonl"
+                model_provider.set_log_path(api_log_path)
+                print(f"API call logging enabled: {api_log_path}")
+            
             # Check if model is available
             if not model_provider.is_available():
                 print(f"Model {model_config.name} is not available")
