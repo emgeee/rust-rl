@@ -89,10 +89,15 @@ python run_evaluation.py --dry-run --all
 
 ```
 qwen3-rust-finetune/outputs/
-├── claude/
+├── claude-3-5-sonnet-20241022/
 │   ├── predictions.parquet    # Generated code responses
-│   └── results.parquet       # Evaluation results
-├── chatgpt/
+│   ├── results.parquet       # Evaluation results
+│   └── api_calls.jsonl       # API call logs (API models only)
+├── gpt-4o/
+│   ├── predictions.parquet
+│   ├── results.parquet
+│   └── api_calls.jsonl
+├── qwen-qwen2.5-coder-7b-instruct/
 │   ├── predictions.parquet
 │   └── results.parquet
 ├── ...
@@ -103,6 +108,8 @@ qwen3-rust-finetune/outputs/
     ├── performance_breakdown.png
     └── model_comparison_summary.csv
 ```
+
+**Directory Naming**: Model names are converted to directory-safe format (lowercase, "/" and "_" replaced with "-")
 
 ## 🔧 Architecture
 
