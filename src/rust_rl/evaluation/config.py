@@ -52,6 +52,7 @@ class UnifiedConfig:
     output_base_dir: str
     evaluation_tools: List[str]
     save_every: int
+    eval_dataset_rows: Optional[int] = None
     
     @classmethod
     def from_yaml(cls, config_path: str) -> "UnifiedConfig":
@@ -92,7 +93,8 @@ class UnifiedConfig:
             dataset_path=config_data["dataset"]["path"],
             output_base_dir=config_data["output"]["base_dir"],
             evaluation_tools=config_data["evaluation"]["tools"],
-            save_every=config_data["evaluation"]["save_every"]
+            save_every=config_data["evaluation"]["save_every"],
+            eval_dataset_rows=config_data["dataset"].get("eval_rows")
         )
     
     def get_all_models(self) -> List[ModelConfig]:

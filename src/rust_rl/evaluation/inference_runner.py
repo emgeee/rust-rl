@@ -63,7 +63,13 @@ class InferenceRunner:
             raise FileNotFoundError(f"Dataset not found: {self.config.dataset_path}")
         
         self.dataset = pd.read_parquet(self.config.dataset_path)
-        print(f"Loaded dataset with {len(self.dataset)} samples")
+        
+        # Limit dataset rows if specified in config
+        if self.config.eval_dataset_rows is not None:
+            self.dataset = self.dataset.head(self.config.eval_dataset_rows)
+            print(f"Loaded dataset with {len(self.dataset)} samples (limited to {self.config.eval_dataset_rows} rows)")
+        else:
+            print(f"Loaded dataset with {len(self.dataset)} samples")
     
     def run_inference_for_model(self, model_config: ModelConfig, force_rerun: bool = False) -> bool:
         """
