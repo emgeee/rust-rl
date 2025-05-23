@@ -54,17 +54,7 @@ This starts the Marimo server with a headless configuration on port 2700 with th
 
 ### Evaluation Pipeline
 
-**Option 1: Dynamic Server (Recommended)**
-```bash
-# Run full pipeline with automatic model loading
-python run_evaluation.py --dynamic-server --all
-
-# Run specific models with dynamic loading  
-python run_evaluation.py --dynamic-server --all --models "claude-3-5-sonnet-20241022" "qwen-qwen2.5-coder-7b-instruct"
-```
-
-**Option 2: Traditional Server**
-1. **Start Inference Server** (if using vLLM models):
+1. **Start vLLM Server** (if using vLLM models):
    ```bash
    python start_vllm_server.py --model "Qwen/Qwen2.5-Coder-7B-Instruct"
    ```
@@ -83,22 +73,15 @@ python run_evaluation.py --dynamic-server --all --models "claude-3-5-sonnet-2024
    python run_evaluation.py --viz-only
    ```
 
+**Note**: The evaluation script will check if vLLM server is running when vLLM models are selected and will exit with an error if the server is not reachable.
+
 **vLLM Server Management**
 ```bash
-# Start dynamic server
-python start_vllm_server.py --dynamic
-
-# Start traditional server with specific model
+# Start server with specific model
 python start_vllm_server.py --model "Qwen/Qwen2.5-Coder-7B-Instruct"
-
-# Interactive monitoring mode (dynamic only)
-python start_vllm_server.py --dynamic --interactive
 
 # Check status
 python start_vllm_server.py --status
-
-# List available models
-python start_vllm_server.py --list
 
 # Stop server
 python start_vllm_server.py --stop
