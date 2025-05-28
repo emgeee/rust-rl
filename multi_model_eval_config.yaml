@@ -60,6 +60,9 @@ models:
 
   vllm:
     # These models will be served by the vLLM server and used by client
+    - model: "mgreen/QWEN-2.5-1.5B-instruct-rust-ft-8800"
+      max_model_len: 32768
+
     - model: "Qwen/Qwen2.5-Coder-7B-Instruct"
       max_model_len: 32768
 
@@ -67,9 +70,6 @@ models:
       max_model_len: 16384
 
     - model: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
-      max_model_len: 32768
-
-    - model: "mgreen/QWEN-2.5-1.5B-instruct-rust-ft-8800"
       max_model_len: 32768
 
 generation_params:

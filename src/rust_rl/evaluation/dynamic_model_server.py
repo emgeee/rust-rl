@@ -77,8 +77,16 @@ class DynamicModelServer:
         return self.current_model
     
     def is_running(self) -> bool:
-        """Check if the server is running"""
+        """Check if the server is running and ready"""
         return self.server_manager.is_running()
+    
+    def is_process_alive(self) -> bool:
+        """Check if server process is alive (may still be loading)"""
+        return self.server_manager.is_process_alive()
+    
+    def get_status_summary(self) -> str:
+        """Get human-readable status summary"""
+        return self.server_manager.get_status_summary()
     
     def stop_server(self):
         """Stop the current server"""
@@ -95,12 +103,16 @@ class DynamicModelServer:
     
     def get_status(self) -> dict:
         """Get comprehensive server status"""
+        server_status = self.server_manager.get_server_status()
         return {
-            "running": self.is_running(),
+            "running": server_status["health_check"],
+            "process_alive": server_status["process_alive"],
+            "status": server_status["status"],
             "current_model": self.current_model,
+            "models_loaded": server_status["models_loaded"],
             "server_url": self.get_server_url(),
             "available_models": self.get_available_models(),
-            "server_details": self.server_manager.get_server_status()
+            "server_details": server_status
         }
 
 

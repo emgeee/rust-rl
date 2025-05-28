@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from rust_rl.evaluation.config import UnifiedConfig
 from rust_rl.evaluation.dynamic_model_server import DynamicModelServer, ModelLoadQueue
+from rust_rl.evaluation.status_server import StatusServer
 
 
 def main():
@@ -81,6 +82,10 @@ def start_server_immediate(config: UnifiedConfig, dynamic_server: DynamicModelSe
     print(f"🚀 Starting vLLM Server")
     print("=" * 50)
     
+    # Start status server first
+    status_server = StatusServer(dynamic_server)
+    status_server.start()
+    
     # Check if vLLM is installed
     try:
         import vllm
@@ -110,7 +115,9 @@ def start_server_immediate(config: UnifiedConfig, dynamic_server: DynamicModelSe
         print(f"✅ Model loaded successfully: {default_model}")
         print(f"🌐 Server ready at: {server_url}")
         print("\n🎯 Server Management:")
-        print(f"   Check status:  curl {server_url}/health")
+        print(f"   vLLM health:   curl {server_url}/health")
+        print(f"   Status info:   curl http://localhost:8001/status")
+        print(f"   Quick health:  curl http://localhost:8001/health")
         print("   Stop server:   Use Ctrl+C or kill the vLLM process")
         print("\n✨ vLLM server is ready to serve requests!")
         
@@ -121,10 +128,12 @@ def start_server_immediate(config: UnifiedConfig, dynamic_server: DynamicModelSe
                 time.sleep(1)
         except KeyboardInterrupt:
             print("\n🛑 Stopping server...")
+            status_server.stop()
             dynamic_server.stop_server()
             print("✅ Server stopped")
     else:
         print(f"❌ Failed to start server with model: {default_model}")
+        status_server.stop()
         sys.exit(1)
 
 

@@ -59,8 +59,11 @@ class VLLMServerManager:
     
     def start_model(self, model_id: str, force_restart: bool = False):
         """Start vLLM server with specific model"""
+        self._startup_mode = True  # Enable detailed health check logging
+        
         if self.is_running() and self.current_model == model_id and not force_restart:
             print(f"✅ Server already running with model: {model_id}")
+            self._startup_mode = False
             return True
             
         if self.is_running():
@@ -74,7 +77,17 @@ class VLLMServerManager:
         print(f"🚀 Starting vLLM server with model: {model_id}")
         print(f"📡 Server will be available at: {self.config.get_vllm_server_url()}")
         
+        # Check if vLLM is available
         try:
+            import vllm
+            print(f"✅ vLLM version: {vllm.__version__}")
+        except ImportError as e:
+            print(f"❌ vLLM not available: {e}")
+            self._startup_mode = False
+            return False
+        
+        try:
+            print(f"🔧 Command: {' '.join(cmd)}")
             self.server_process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -87,16 +100,32 @@ class VLLMServerManager:
             
             # Wait for server to start
             print("⏳ Waiting for server to start...")
+            
+            # Monitor subprocess output in real-time
+            import threading
+            def log_output():
+                for line in self.server_process.stdout:
+                    print(f"[vLLM] {line.strip()}")
+            
+            output_thread = threading.Thread(target=log_output, daemon=True)
+            output_thread.start()
+            
             if self.wait_for_server_ready(timeout=120):
                 print("✅ Server started successfully!")
+                self._startup_mode = False
                 return True
             else:
                 print("❌ Server failed to start within timeout")
+                if self.server_process and self.server_process.poll() is not None:
+                    print(f"❌ Server process exited with code: {self.server_process.returncode}")
                 self.stop_server()
+                self._startup_mode = False
                 return False
                 
         except Exception as e:
             print(f"❌ Failed to start server: {e}")
+            import traceback
+            print(f"❌ Full error traceback: {traceback.format_exc()}")
             return False
     
     def stop_server(self):
@@ -116,52 +145,93 @@ class VLLMServerManager:
             print("✅ Server stopped")
     
     def is_running(self) -> bool:
-        """Check if server is running"""
+        """Check if server is running and ready"""
+        status = self.get_server_status()
+        return status["health_check"]
+    
+    def is_process_alive(self) -> bool:
+        """Check if server process is alive (may still be loading)"""
         if not self.server_process:
             return False
-        
-        # Check if process is still alive
-        if self.server_process.poll() is not None:
-            self.server_process = None
-            self.current_model = None
-            return False
-        
-        # Check if server is responding
-        try:
-            response = requests.get(f"{self.config.get_vllm_server_url()}/health", timeout=2)
-            return response.status_code == 200
-        except:
-            return False
+        return self.server_process.poll() is None
     
     def wait_for_server_ready(self, timeout: int = 60) -> bool:
         """Wait for server to be ready"""
         start_time = time.time()
+        last_check_time = start_time
         while time.time() - start_time < timeout:
+            current_time = time.time()
+            
+            # Log progress every 10 seconds
+            if current_time - last_check_time >= 10:
+                elapsed = current_time - start_time
+                print(f"⏳ Still waiting for server... ({elapsed:.1f}s elapsed)")
+                
+                # Check if process is still alive
+                if self.server_process and self.server_process.poll() is not None:
+                    print(f"❌ Server process died with exit code: {self.server_process.returncode}")
+                    return False
+                    
+                last_check_time = current_time
+            
             if self.is_running():
                 return True
             time.sleep(2)
         return False
     
     def get_server_status(self) -> dict:
-        """Get server status information"""
+        """Get comprehensive server status information"""
+        process_alive = self.server_process and self.server_process.poll() is None
+        
         status = {
-            "running": self.is_running(),
+            "process_alive": process_alive,
             "current_model": self.current_model,
             "url": self.config.get_vllm_server_url(),
-            "process_id": self.server_process.pid if self.server_process else None
+            "process_id": self.server_process.pid if self.server_process else None,
+            "health_check": False,
+            "models_loaded": [],
+            "status": "unknown"
         }
         
-        if status["running"]:
+        if not process_alive:
+            status["status"] = "stopped"
+            return status
+            
+        # Check if server is responding to health checks
+        try:
+            health_response = requests.get(f"{self.config.get_vllm_server_url()}/health", timeout=2)
+            status["health_check"] = health_response.status_code == 200
+        except:
+            status["health_check"] = False
+            
+        if status["health_check"]:
+            status["status"] = "ready"
+            # Try to get loaded models
             try:
-                # Try to get model info from server
-                response = requests.get(f"{self.config.get_vllm_server_url()}/v1/models", timeout=5)
-                if response.status_code == 200:
-                    models = response.json()
-                    status["models"] = models.get("data", [])
+                models_response = requests.get(f"{self.config.get_vllm_server_url()}/v1/models", timeout=5)
+                if models_response.status_code == 200:
+                    models = models_response.json()
+                    status["models_loaded"] = [m["id"] for m in models.get("data", [])]
             except:
                 pass
+        else:
+            status["status"] = "loading" if process_alive else "failed"
         
         return status
+    
+    def get_status_summary(self) -> str:
+        """Get a human-readable status summary"""
+        status = self.get_server_status()
+        
+        if status["status"] == "stopped":
+            return "🔴 Server stopped"
+        elif status["status"] == "loading":
+            return f"🟡 Server loading model: {status['current_model'] or 'unknown'}"
+        elif status["status"] == "ready":
+            models = ", ".join(status["models_loaded"]) if status["models_loaded"] else "none"
+            return f"🟢 Server ready - Models: {models}"
+        else:
+            return f"🔴 Server status unknown - Process alive: {status['process_alive']}"
     
     def run_interactive_mode(self):
         """Run server in interactive mode with output"""
