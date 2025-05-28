@@ -5,10 +5,13 @@ API-based model providers (Claude, ChatGPT, Grok)
 import os
 import time
 import json
+import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 import requests
+import aiohttp
+from concurrent.futures import ThreadPoolExecutor
 
 from .base import ModelProvider
 
@@ -115,6 +118,49 @@ class APIModelProvider(ModelProvider):
         else:
             raise ValueError(f"Unknown provider: {self.provider}")
     
+    def generate_batch(self, prompts: List[str], system_prompt: str = None, batch_size: int = 10) -> List[str]:
+        """Generate responses for multiple prompts in parallel batches"""
+        if not prompts:
+            return []
+        
+        # Use asyncio for concurrent API calls
+        return asyncio.run(self._generate_batch_async(prompts, system_prompt, batch_size))
+    
+    async def _generate_batch_async(self, prompts: List[str], system_prompt: str = None, batch_size: int = 10) -> List[str]:
+        """Async batch generation"""
+        results = []
+        
+        # Process in batches to avoid overwhelming the API
+        for i in range(0, len(prompts), batch_size):
+            batch = prompts[i:i + batch_size]
+            
+            # Create tasks for this batch
+            tasks = []
+            for prompt in batch:
+                if self.provider == "anthropic":
+                    task = self._generate_anthropic_async(prompt, system_prompt)
+                elif self.provider == "openai":
+                    task = self._generate_openai_async(prompt, system_prompt)
+                elif self.provider == "xai":
+                    task = self._generate_xai_async(prompt, system_prompt)
+                elif self.provider == "google":
+                    task = self._generate_google_async(prompt, system_prompt)
+                else:
+                    raise ValueError(f"Unknown provider: {self.provider}")
+                tasks.append(task)
+            
+            # Execute batch concurrently
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Handle results and exceptions
+            for result in batch_results:
+                if isinstance(result, Exception):
+                    results.append(f"ERROR: {str(result)}")
+                else:
+                    results.append(result)
+        
+        return results
+    
     def _generate_anthropic(self, prompt: str, system_prompt: str = None) -> str:
         """Generate using Anthropic Claude API"""
         start_time = time.time()
@@ -155,6 +201,46 @@ class APIModelProvider(ModelProvider):
         
         return response_text
     
+    async def _generate_anthropic_async(self, prompt: str, system_prompt: str = None) -> str:
+        """Generate using Anthropic Claude API - async version"""
+        start_time = time.time()
+        
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01"
+        }
+        
+        messages = [{"role": "user", "content": prompt}]
+        
+        data = {
+            "model": self.model_id,
+            "max_tokens": self.config.get("max_new_tokens", 1024),
+            "temperature": self.config.get("temperature", 0.2),
+            "messages": messages
+        }
+        
+        if system_prompt:
+            data["system"] = system_prompt
+        
+        async with aiohttp.ClientSession() as session:
+            response_json = await self._make_request_async(session, self.base_url, headers, data)
+            response_text = response_json["content"][0]["text"]
+            
+            duration = time.time() - start_time
+            
+            # Extract token counts from response
+            input_tokens = response_json.get("usage", {}).get("input_tokens", 
+                                                            self._count_tokens_estimate(prompt + (system_prompt or "")))
+            output_tokens = response_json.get("usage", {}).get("output_tokens", 
+                                                             self._count_tokens_estimate(response_text))
+            
+            # Log the API call
+            self._log_api_call(prompt, system_prompt, response_text, 
+                              input_tokens, output_tokens, duration, response_json)
+            
+            return response_text
+    
     def _generate_openai(self, prompt: str, system_prompt: str = None) -> str:
         """Generate using OpenAI API"""
         start_time = time.time()
@@ -194,6 +280,45 @@ class APIModelProvider(ModelProvider):
         
         return response_text
     
+    async def _generate_openai_async(self, prompt: str, system_prompt: str = None) -> str:
+        """Generate using OpenAI API - async version"""
+        start_time = time.time()
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        
+        data = {
+            "model": self.model_id,
+            "max_tokens": self.config.get("max_new_tokens", 1024),
+            "temperature": self.config.get("temperature", 0.2),
+            "messages": messages
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            response_json = await self._make_request_async(session, self.base_url, headers, data)
+            response_text = response_json["choices"][0]["message"]["content"]
+            
+            duration = time.time() - start_time
+            
+            # Extract token counts from response
+            input_tokens = response_json.get("usage", {}).get("prompt_tokens", 
+                                                            self._count_tokens_estimate(prompt + (system_prompt or "")))
+            output_tokens = response_json.get("usage", {}).get("completion_tokens", 
+                                                             self._count_tokens_estimate(response_text))
+            
+            # Log the API call
+            self._log_api_call(prompt, system_prompt, response_text, 
+                              input_tokens, output_tokens, duration, response_json)
+            
+            return response_text
+    
     def _generate_xai(self, prompt: str, system_prompt: str = None) -> str:
         """Generate using xAI Grok API"""
         start_time = time.time()
@@ -232,6 +357,45 @@ class APIModelProvider(ModelProvider):
                           input_tokens, output_tokens, duration, response_json)
         
         return response_text
+    
+    async def _generate_xai_async(self, prompt: str, system_prompt: str = None) -> str:
+        """Generate using xAI Grok API - async version"""
+        start_time = time.time()
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        
+        data = {
+            "model": self.model_id,
+            "max_tokens": self.config.get("max_new_tokens", 1024),
+            "temperature": self.config.get("temperature", 0.2),
+            "messages": messages
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            response_json = await self._make_request_async(session, self.base_url, headers, data)
+            response_text = response_json["choices"][0]["message"]["content"]
+            
+            duration = time.time() - start_time
+            
+            # Extract token counts from response
+            input_tokens = response_json.get("usage", {}).get("prompt_tokens", 
+                                                            self._count_tokens_estimate(prompt + (system_prompt or "")))
+            output_tokens = response_json.get("usage", {}).get("completion_tokens", 
+                                                             self._count_tokens_estimate(response_text))
+            
+            # Log the API call
+            self._log_api_call(prompt, system_prompt, response_text, 
+                              input_tokens, output_tokens, duration, response_json)
+            
+            return response_text
     
     def _generate_google(self, prompt: str, system_prompt: str = None) -> str:
         """Generate using Google Gemini API"""
@@ -287,6 +451,60 @@ class APIModelProvider(ModelProvider):
         
         raise ValueError("Invalid response format from Google Gemini API")
     
+    async def _generate_google_async(self, prompt: str, system_prompt: str = None) -> str:
+        """Generate using Google Gemini API - async version"""
+        start_time = time.time()
+        
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
+        # Build the URL with API key as a query parameter
+        url = f"{self.base_url}/{self.model_id}:generateContent?key={self.api_key}"
+        
+        # Build content parts
+        parts = []
+        if system_prompt:
+            parts.append({"text": system_prompt})
+        parts.append({"text": prompt})
+        
+        data = {
+            "contents": [
+                {
+                    "parts": parts
+                }
+            ],
+            "generationConfig": {
+                "maxOutputTokens": self.config.get("max_new_tokens", 1024),
+                "temperature": self.config.get("temperature", 0.2),
+                "topP": self.config.get("top_p", 0.9)
+            }
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            response_json = await self._make_request_async(session, url, headers, data)
+            
+            duration = time.time() - start_time
+            
+            if "candidates" in response_json and len(response_json["candidates"]) > 0:
+                candidate = response_json["candidates"][0]
+                if "content" in candidate and "parts" in candidate["content"]:
+                    response_text = candidate["content"]["parts"][0]["text"]
+                    
+                    # Extract token counts from response
+                    input_tokens = response_json.get("usageMetadata", {}).get("promptTokenCount", 
+                                                                   self._count_tokens_estimate(prompt + (system_prompt or "")))
+                    output_tokens = response_json.get("usageMetadata", {}).get("candidatesTokenCount", 
+                                                                             self._count_tokens_estimate(response_text))
+                    
+                    # Log the API call
+                    self._log_api_call(prompt, system_prompt, response_text, 
+                                      input_tokens, output_tokens, duration, response_json)
+                    
+                    return response_text
+            
+            raise ValueError("Invalid response format from Google Gemini API")
+    
     def _make_request(self, url: str, headers: Dict, data: Dict, max_retries: int = 3) -> requests.Response:
         """Make API request with retry logic"""
         for attempt in range(max_retries):
@@ -299,6 +517,19 @@ class APIModelProvider(ModelProvider):
                     raise e
                 wait_time = 2 ** attempt
                 time.sleep(wait_time)
+    
+    async def _make_request_async(self, session: aiohttp.ClientSession, url: str, headers: Dict, data: Dict, max_retries: int = 3) -> Dict:
+        """Make async API request with retry logic"""
+        for attempt in range(max_retries):
+            try:
+                async with session.post(url, headers=headers, json=data, timeout=aiohttp.ClientTimeout(total=120)) as response:
+                    response.raise_for_status()
+                    return await response.json()
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                if attempt == max_retries - 1:
+                    raise e
+                wait_time = 2 ** attempt
+                await asyncio.sleep(wait_time)
     
     def is_available(self) -> bool:
         """Check if API is available"""

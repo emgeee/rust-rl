@@ -64,13 +64,14 @@ class InferenceRunner:
         if self.config.eval_dataset_rows is not None:
             self.dataset = self.dataset.head(self.config.eval_dataset_rows)
     
-    def run_inference_for_model(self, model_config: ModelConfig, force_rerun: bool = False) -> bool:
+    def run_inference_for_model(self, model_config: ModelConfig, force_rerun: bool = False, batch_size: int = None) -> bool:
         """
         Run inference for a single model
         
         Args:
             model_config: Configuration for the model
             force_rerun: Whether to force re-running even if results exist
+            batch_size: Number of requests to process in parallel (None for auto-detection)
             
         Returns:
             True if successful, False otherwise
@@ -103,66 +104,128 @@ class InferenceRunner:
                 return False
             print(f"✅ {model_config.name} is available")
             
-            results = []
+            # Determine batch processing strategy
+            use_batch_processing = self._should_use_batch_processing(model_config, batch_size)
             
-            # Progress bar
-            with tqdm(total=len(self.dataset), desc=f"Inference {model_config.name}") as pbar:
-                for index, row in self.dataset.iterrows():
-                    try:
-                        # Generate response
-                        response = model_provider.generate(
-                            prompt=row['rust_prompt'],
-                            system_prompt=RUST_SYSTEM_PROMPT
-                        )
-                        
-                        # Store result
-                        result = {
-                            "task_id": row["task_id"],
-                            "prompt": row["rust_prompt"],
-                            "test_list": row["rust_test_list"],
-                            "response": response,
-                            "model_name": model_config.name
-                        }
-                        results.append(result)
-                        
-                        # Save periodically
-                        if len(results) % self.config.save_every == 0:
-                            self._save_predictions(results, predictions_path)
-                        
-                        pbar.update(1)
-                        
-                    except Exception as e:
-                        # Add failed result
-                        result = {
-                            "task_id": row["task_id"],
-                            "prompt": row["rust_prompt"],
-                            "test_list": row["rust_test_list"],
-                            "response": f"ERROR: {str(e)}",
-                            "model_name": model_config.name
-                        }
-                        results.append(result)
-                        pbar.update(1)
-            
-            # Save final results
-            self._save_predictions(results, predictions_path)
-            return True
+            if use_batch_processing:
+                return self._run_batch_inference(model_provider, model_config, predictions_path, batch_size)
+            else:
+                return self._run_sequential_inference(model_provider, model_config, predictions_path)
             
         except Exception as e:
             print(f"❌ Failed to run inference for {model_config.name}: {str(e)}")
             return False
+    
+    def _should_use_batch_processing(self, model_config: ModelConfig, batch_size: int = None) -> bool:
+        """Determine if batch processing should be used for this model"""
+        # Only use batch processing for API models
+        api_providers = ["anthropic", "openai", "xai", "google"]
+        return model_config.provider in api_providers
+    
+    def _run_batch_inference(self, model_provider, model_config: ModelConfig, predictions_path: Path, batch_size: int = None) -> bool:
+        """Run inference using batch processing for API models"""
+        if batch_size is None:
+            # Determine optimal batch size based on provider
+            batch_size_map = {
+                "anthropic": 5,  # Conservative for Claude
+                "openai": 10,   # OpenAI can handle more concurrent requests
+                "xai": 8,       # Grok rate limits
+                "google": 15    # Gemini is generally fast
+            }
+            batch_size = batch_size_map.get(model_config.provider, 5)
+        
+        print(f"🚀 Using batch processing with batch size {batch_size}")
+        
+        # Prepare all prompts
+        prompts = [row['rust_prompt'] for _, row in self.dataset.iterrows()]
+        
+        # Generate all responses in batches
+        with tqdm(total=len(prompts), desc=f"Batch Inference {model_config.name}") as pbar:
+            all_responses = model_provider.generate_batch(
+                prompts=prompts,
+                system_prompt=RUST_SYSTEM_PROMPT,
+                batch_size=batch_size
+            )
+            pbar.update(len(prompts))
+        
+        # Prepare results
+        results = []
+        for i, (_, row) in enumerate(self.dataset.iterrows()):
+            response = all_responses[i] if i < len(all_responses) else "ERROR: No response"
+            result = {
+                "task_id": row["task_id"],
+                "prompt": row["rust_prompt"],
+                "test_list": row["rust_test_list"],
+                "response": response,
+                "model_name": model_config.name
+            }
+            results.append(result)
+        
+        # Save results
+        self._save_predictions(results, predictions_path)
+        return True
+    
+    def _run_sequential_inference(self, model_provider, model_config: ModelConfig, predictions_path: Path) -> bool:
+        """Run inference using sequential processing (fallback for non-API models)"""
+        print(f"🔄 Using sequential processing")
+        
+        results = []
+        
+        # Progress bar
+        with tqdm(total=len(self.dataset), desc=f"Sequential Inference {model_config.name}") as pbar:
+            for index, row in self.dataset.iterrows():
+                try:
+                    # Generate response
+                    response = model_provider.generate(
+                        prompt=row['rust_prompt'],
+                        system_prompt=RUST_SYSTEM_PROMPT
+                    )
+                    
+                    # Store result
+                    result = {
+                        "task_id": row["task_id"],
+                        "prompt": row["rust_prompt"],
+                        "test_list": row["rust_test_list"],
+                        "response": response,
+                        "model_name": model_config.name
+                    }
+                    results.append(result)
+                    
+                    # Save periodically
+                    if len(results) % self.config.save_every == 0:
+                        self._save_predictions(results, predictions_path)
+                    
+                    pbar.update(1)
+                    
+                except Exception as e:
+                    # Add failed result
+                    result = {
+                        "task_id": row["task_id"],
+                        "prompt": row["rust_prompt"],
+                        "test_list": row["rust_test_list"],
+                        "response": f"ERROR: {str(e)}",
+                        "model_name": model_config.name
+                    }
+                    results.append(result)
+                    pbar.update(1)
+        
+        # Save final results
+        self._save_predictions(results, predictions_path)
+        return True
     
     def _save_predictions(self, results: List[Dict], filepath: Path):
         """Save predictions to parquet file"""
         df = pd.DataFrame(results)
         df.to_parquet(filepath, index=False)
     
-    def run_inference_for_all_models(self, force_rerun: bool = False, selected_models: List[str] = None) -> Dict[str, bool]:
+    def run_inference_for_all_models(self, force_rerun: bool = False, selected_models: List[str] = None, batch_size: int = None) -> Dict[str, bool]:
         """
         Run inference for all configured models
         
         Args:
             force_rerun: Whether to force re-running even if results exist
             selected_models: List of model names to run (None for all)
+            batch_size: Number of requests to process in parallel for API models
             
         Returns:
             Dictionary mapping model names to success status
@@ -175,7 +238,7 @@ class InferenceRunner:
         results = {}
         
         for model_config in all_models:
-            success = self.run_inference_for_model(model_config, force_rerun)
+            success = self.run_inference_for_model(model_config, force_rerun, batch_size)
             results[model_config.name] = success
         
         return results

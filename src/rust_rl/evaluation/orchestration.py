@@ -240,7 +240,7 @@ class EvaluationOrchestrator:
                 f"Start server with: python start_vllm_server.py --model <model_id>"
             )
     
-    def run_inference_stage(self, selected_models: List[str] = None, force_rerun: bool = False):
+    def run_inference_stage(self, selected_models: List[str] = None, force_rerun: bool = False, batch_size: int = None):
         """Run inference stage"""
         if not self.silent_inference:
             print("\n" + "=" * 60)
@@ -249,7 +249,8 @@ class EvaluationOrchestrator:
         
         inference_results = self.inference_runner.run_inference_for_all_models(
             force_rerun=force_rerun,
-            selected_models=selected_models
+            selected_models=selected_models,
+            batch_size=batch_size
         )
         
         if not self.silent_inference:
@@ -323,7 +324,7 @@ class EvaluationOrchestrator:
         
         return chart_paths
     
-    def run_full_pipeline(self, selected_models: List[str] = None, force_rerun: bool = False):
+    def run_full_pipeline(self, selected_models: List[str] = None, force_rerun: bool = False, batch_size: int = None):
         """Run complete evaluation pipeline"""
         print("🦀 Multi-Model Rust Code Evaluation Pipeline")
         print("=" * 80)
@@ -335,7 +336,7 @@ class EvaluationOrchestrator:
         self.check_vllm_server_requirements(selected_models)
         
         # Run inference
-        inference_results = self.run_inference_stage(selected_models, force_rerun)
+        inference_results = self.run_inference_stage(selected_models, force_rerun, batch_size)
         
         # Run evaluation
         eval_results = self.run_evaluation_stage(selected_models, force_rerun)

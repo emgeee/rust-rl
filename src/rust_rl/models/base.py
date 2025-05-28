@@ -28,6 +28,27 @@ class ModelProvider(ABC):
         """
         pass
     
+    def generate_batch(self, prompts: List[str], system_prompt: str = None, batch_size: int = 10) -> List[str]:
+        """
+        Generate responses for multiple prompts (default implementation uses sequential calls)
+        
+        Args:
+            prompts: List of user prompts
+            system_prompt: Optional system prompt
+            batch_size: Batch size for processing (ignored in default implementation)
+            
+        Returns:
+            List of generated responses
+        """
+        results = []
+        for prompt in prompts:
+            try:
+                response = self.generate(prompt, system_prompt)
+                results.append(response)
+            except Exception as e:
+                results.append(f"ERROR: {str(e)}")
+        return results
+    
     @abstractmethod
     def is_available(self) -> bool:
         """Check if the model provider is available and ready to use"""

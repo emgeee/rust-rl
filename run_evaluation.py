@@ -68,6 +68,11 @@ def main():
         action="store_true",
         help="Show what would be done without running"
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        help="Batch size for parallel API requests (default: auto-detect per provider)"
+    )
     
     args = parser.parse_args()
     
@@ -97,12 +102,14 @@ def main():
         if args.all:
             orchestrator.run_full_pipeline(
                 selected_models=args.models,
-                force_rerun=args.force
+                force_rerun=args.force,
+                batch_size=args.batch_size
             )
         elif args.inference_only:
             orchestrator.run_inference_stage(
                 selected_models=args.models,
-                force_rerun=args.force
+                force_rerun=args.force,
+                batch_size=args.batch_size
             )
         elif args.eval_only:
             orchestrator.run_evaluation_stage(
