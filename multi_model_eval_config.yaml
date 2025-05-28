@@ -37,8 +37,11 @@ models:
     - model: "gpt-4.1-nano"
       provider: "openai"
 
-    # - model: "grok-beta"
-    #   provider: "xai"
+    - model: "grok-3"
+      provider: "xai"
+
+    - model: "grok-3-mini"
+      provider: "xai"
 
     # - model: "gemini-1.5-flash"
     #   provider: "google"
@@ -64,6 +67,9 @@ models:
   #     max_model_len: 16384
   #
   #   - model: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+  #     max_model_len: 32768
+  #
+  #   - model: "mgreen/QWEN-2.5-1.5B-instruct-rust-ft-8800"
   #     max_model_len: 32768
 
 generation_params:

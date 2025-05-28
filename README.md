@@ -43,6 +43,40 @@ rustup default stable
 
 ## Usage
 
+### Docker Deployment
+
+**Run vLLM Server with Docker:**
+```bash
+# Run in background
+docker run -d \
+  --name rust-rl-vllm \
+  --gpus all \
+  -p 8000:8000 \
+  -v ~/.cache/huggingface:/root/.cache/huggingface:ro \
+  emgeee/rust-rl:latest
+
+# Run interactively (see logs)
+docker run -it \
+  --name rust-rl-vllm \
+  --gpus all \
+  -p 8000:8000 \
+  -v ~/.cache/huggingface:/root/.cache/huggingface:ro \
+  emgeee/rust-rl:latest
+
+# Stop the container
+docker stop rust-rl-vllm
+docker rm rust-rl-vllm
+```
+
+**Or use Docker Compose:**
+```bash
+# Build and start the server
+docker-compose up --build -d
+
+# Stop the server
+docker-compose down
+```
+
 ### Start Marimo Server
 
 ```bash
