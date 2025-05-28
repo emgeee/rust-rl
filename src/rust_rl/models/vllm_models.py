@@ -2,6 +2,7 @@
 vLLM-based model provider for local HuggingFace models
 """
 
+import os
 import requests
 from typing import Dict, Any
 
@@ -13,7 +14,12 @@ class VLLMModelProvider(ModelProvider):
     
     def __init__(self, name: str, model_id: str, config: Dict[str, Any] = None):
         super().__init__(name, model_id, config)
-        self.base_url = config.get("vllm_url", "http://localhost:8000")
+        # Allow environment variable override for server URL
+        default_host = config.get("vllm_host", "localhost")
+        default_port = config.get("vllm_port", 8000)
+        host = os.getenv("VLLM_SERVER_HOST", default_host)
+        port = int(os.getenv("VLLM_SERVER_PORT", str(default_port)))
+        self.base_url = f"http://{host}:{port}"
         self.endpoint = f"{self.base_url}/v1/chat/completions"
     
     def generate(self, prompt: str, system_prompt: str = None) -> str:

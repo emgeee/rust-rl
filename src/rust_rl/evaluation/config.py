@@ -3,6 +3,7 @@ Configuration management for multi-model evaluation
 """
 
 import yaml
+import os
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
@@ -62,9 +63,13 @@ class UnifiedConfig:
         
         # Parse server configuration
         server_data = config_data["server"]
+        # Allow environment variable override for server host
+        host = os.getenv("VLLM_SERVER_HOST", server_data.get("host", "localhost"))
+        port = int(os.getenv("VLLM_SERVER_PORT", server_data.get("port", 8000)))
+        
         server_config = ServerConfig(
-            host=server_data.get("host", "localhost"),
-            port=server_data.get("port", 8000),
+            host=host,
+            port=port,
             gpu_memory_utilization=server_data["runtime"]["gpu_memory_utilization"],
             enable_chunked_prefill=server_data["runtime"]["enable_chunked_prefill"],
             tensor_parallel_size=server_data["runtime"]["tensor_parallel_size"]
