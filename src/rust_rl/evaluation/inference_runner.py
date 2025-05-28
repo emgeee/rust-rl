@@ -97,8 +97,11 @@ class InferenceRunner:
                 model_provider.set_log_path(api_log_path)
             
             # Check if model is available
+            print(f"🔍 Checking availability for {model_config.name}...")
             if not model_provider.is_available():
+                print(f"⚠️  Skipping {model_config.name} - model unavailable")
                 return False
+            print(f"✅ {model_config.name} is available")
             
             results = []
             
@@ -145,6 +148,7 @@ class InferenceRunner:
             return True
             
         except Exception as e:
+            print(f"❌ Failed to run inference for {model_config.name}: {str(e)}")
             return False
     
     def _save_predictions(self, results: List[Dict], filepath: Path):

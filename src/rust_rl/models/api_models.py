@@ -306,5 +306,6 @@ class APIModelProvider(ModelProvider):
             # Make a simple test request
             test_response = self.generate("Test", "You are a helpful assistant.")
             return len(test_response) > 0
-        except Exception:
+        except Exception as e:
+            print(f"❌ Model {self.name} unavailable: {str(e)}")
             return False

@@ -82,7 +82,7 @@ class UnifiedConfig:
                 max_model_len=model.get("max_model_len"),
                 tensor_parallel_size=model.get("tensor_parallel_size")
             )
-            for model in config_data["models"]["vllm"]
+            for model in config_data["models"]["vllm"] or []
         ]
         
         return cls(

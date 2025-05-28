@@ -92,7 +92,7 @@ def print_evaluation_summary(results_df, tools):
     print("="*60)
 
 
-def evaluate_solutions(df, tools, output_file, progress_bar=None, max_rows=-1):
+def evaluate_solutions(df, tools, output_file, progress_bar=None, max_rows=-1, save_every=100):
     """
     Evaluates all solutions in the dataframe.
     
@@ -102,6 +102,7 @@ def evaluate_solutions(df, tools, output_file, progress_bar=None, max_rows=-1):
         output_file: Path to write the results to
         progress_bar: Optional progress bar object
         max_rows: Maximum number of rows to evaluate (-1 for all)
+        save_every: Save results every N evaluations (default 100)
         
     Returns:
         DataFrame with added tool results columns
@@ -132,8 +133,8 @@ def evaluate_solutions(df, tools, output_file, progress_bar=None, max_rows=-1):
     bar = progress_context.__enter__() if progress_context else None
     
     try:
-        for idx, row in df.iterrows():
-            if max_rows > 0 and idx >= max_rows:
+        for row_count, (idx, row) in enumerate(df.iterrows()):
+            if max_rows > 0 and row_count >= max_rows:
                 break
 
             test_results = setup_and_test_rust_project(row, tools)
@@ -162,8 +163,8 @@ def evaluate_solutions(df, tools, output_file, progress_bar=None, max_rows=-1):
             print(f"Total passed: {total_passed}, Total failed: {total_failed}")
             
             # print percentage
-            accuracy = total_passed / (idx + 1) * 100
-            percent_passed_str = f"Percentage passed {total_passed}/{idx + 1} = {accuracy:.1f}%"
+            accuracy = total_passed / (row_count + 1) * 100
+            percent_passed_str = f"Percentage passed {total_passed}/{row_count + 1} = {accuracy:.1f}%"
             print(percent_passed_str)
             
             if bar:
@@ -171,12 +172,15 @@ def evaluate_solutions(df, tools, output_file, progress_bar=None, max_rows=-1):
                 if hasattr(bar, 'set_description'):
                     bar.set_description(percent_passed_str)
 
-            if idx % 100 == 0:
+            if save_every > 0 and (row_count + 1) % save_every == 0:
                 results_df = pd.DataFrame(results).set_index("idx")
                 save_dataframe(results_df, output_file)
 
         # Convert results to dataframe and merge with original
         results_df = pd.DataFrame(results).set_index("idx")
+        
+        # Save final results to disk
+        save_dataframe(results_df, output_file)
         
         # Print final comprehensive statistics
         print("\n" + "="*60)

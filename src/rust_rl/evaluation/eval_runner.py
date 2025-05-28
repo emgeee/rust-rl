@@ -64,7 +64,8 @@ class EvaluationRunner:
                 tools=self.tools,
                 output_file=str(results_path),
                 progress_bar=tqdm,
-                max_rows=-1  # Evaluate all rows
+                max_rows=-1,  # Evaluate all rows
+                save_every=self.config.save_every
             )
             
             print(f"Evaluation completed for {model_name}: {len(results_df)} results saved")

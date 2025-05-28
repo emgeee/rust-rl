@@ -13,19 +13,28 @@ models:
     - model: "claude-3-5-sonnet-20241022"
       provider: "anthropic"
 
-    - model: "claude-3-7-sonnet-20250109"
+    - model: "claude-3-7-sonnet-20250219"
       provider: "anthropic"
 
-    - model: "claude-4-20250514"
+    - model: "claude-opus-4-20250514"
+      provider: "anthropic"
+
+    - model: "claude-sonnet-4-20250514"
       provider: "anthropic"
 
     - model: "gpt-4o"
       provider: "openai"
 
-    - model: "gpt-4.1-turbo"
+    - model: "o4-mini"
       provider: "openai"
 
-    - model: "o1-mini"
+    - model: "gpt-4.1"
+      provider: "openai"
+
+    - model: "gpt-4.1-mini"
+      provider: "openai"
+
+    - model: "gpt-4.1-nano"
       provider: "openai"
 
     # - model: "grok-beta"
@@ -46,16 +55,16 @@ models:
     # - model: "gemini-2.5-pro-preview-05-06"
     #   provider: "google"
 
-  vllm:
-    # These models will be served by the vLLM server and used by client
-    - model: "Qwen/Qwen2.5-Coder-7B-Instruct"
-      max_model_len: 32768
-
-    - model: "deepseek-ai/deepseek-coder-6.7b-instruct"
-      max_model_len: 16384
-
-    - model: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
-      max_model_len: 32768
+  # vllm:
+  #   # These models will be served by the vLLM server and used by client
+  #   - model: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  #     max_model_len: 32768
+  #
+  #   - model: "deepseek-ai/deepseek-coder-6.7b-instruct"
+  #     max_model_len: 16384
+  #
+  #   - model: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+  #     max_model_len: 32768
 
 generation_params:
   max_new_tokens: 2048
@@ -64,7 +73,7 @@ generation_params:
 
 dataset:
   path: "qwen3-rust-finetune/cargo_test_passed_eval.parquet"
-  eval_rows: 10  # Number of rows to use from eval dataset. If null, use all rows
+  eval_rows: Null  # Number of rows to use from eval dataset. If null, use all rows
 
 output:
   base_dir: "qwen3-rust-finetune/outputs"
