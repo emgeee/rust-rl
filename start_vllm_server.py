@@ -83,7 +83,7 @@ def start_server_immediate(config: UnifiedConfig, dynamic_server: DynamicModelSe
     print("=" * 50)
     
     # Start status server first
-    status_server = StatusServer(dynamic_server)
+    status_server = StatusServer(dynamic_server, port=8001)
     status_server.start()
     
     # Check if vLLM is installed
