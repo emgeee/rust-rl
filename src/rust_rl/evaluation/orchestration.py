@@ -193,11 +193,8 @@ class VLLMServerManager:
             "status": "unknown"
         }
         
-        if not process_alive:
-            status["status"] = "stopped"
-            return status
-            
-        # Check if server is responding to health checks
+        # Always check health endpoint, regardless of whether we manage the process
+        # (external servers won't have a process_alive but may still be running)
         try:
             health_response = requests.get(f"{self.config.get_vllm_server_url()}/health", timeout=2)
             status["health_check"] = health_response.status_code == 200
@@ -215,7 +212,11 @@ class VLLMServerManager:
             except:
                 pass
         else:
-            status["status"] = "loading" if process_alive else "failed"
+            # Determine status based on process and health check
+            if process_alive:
+                status["status"] = "loading"  # Process running but health check failed
+            else:
+                status["status"] = "stopped"  # No process and no health response
         
         return status
     
@@ -267,10 +268,13 @@ class EvaluationOrchestrator:
     
     def validate_config(self, selected_models: List[str] = None):
         """Validate configuration and model selection"""
-        print(f"📋 Configuration loaded from: {self.config}")
+        print(f"📋 Configuration loaded")
         print(f"   - Dataset: {self.config.dataset_path}")
         print(f"   - Output directory: {self.config.output_base_dir}")
         print(f"   - Evaluation tools: {', '.join(self.config.evaluation_tools)}")
+        
+        # Validate vLLM configuration
+        self.config.validate_vllm_config()
         
         # Show configured models
         all_models = self.config.get_all_models()
@@ -296,7 +300,7 @@ class EvaluationOrchestrator:
         if selected_models:
             all_models = [m for m in all_models if m.name in selected_models]
         
-        vllm_models = [m for m in all_models if m.provider not in ["anthropic", "openai", "xai"]]
+        vllm_models = [m for m in all_models if m.provider not in ["anthropic", "openai", "xai", "google"]]
         if not vllm_models:
             return  # No vLLM models needed
         
@@ -307,9 +311,21 @@ class EvaluationOrchestrator:
         
         if not server_running:
             model_names = [m.name for m in vllm_models]
+            vllm_model_ids = [m.model for m in vllm_models]
+            
+            print(f"\n❌ vLLM server is required but not accessible at {server_url}")
+            print(f"📋 Models that need vLLM server:")
+            for model in vllm_models:
+                print(f"   - {model.name} ({model.model})")
+            print(f"\n🚀 To start the vLLM server manually, run:")
+            print(f"   python -m vllm.entrypoints.openai.api_server \\")
+            print(f"     --model <MODEL_NAME> \\")
+            print(f"     --host {self.config.server.host} \\")
+            print(f"     --port {self.config.server.port}")
+            print(f"\n💡 To use a different server, update the 'server' section in the config file")
+            
             raise RuntimeError(
-                f"vLLM server at {server_url} is not running but required for models: {', '.join(model_names)}\n"
-                f"Start server manually or set VLLM_SERVER_HOST environment variable to point to your remote server"
+                f"vLLM server at {server_url} is not running but required for models: {', '.join(model_names)}"
             )
     
     def run_inference_stage(self, selected_models: List[str] = None, force_rerun: bool = False, batch_size: int = None):

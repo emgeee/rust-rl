@@ -75,17 +75,6 @@ def main():
         help="Batch size for parallel API requests (default: auto-detect per provider)"
     )
     
-    # Server configuration
-    parser.add_argument(
-        "--vllm-host",
-        type=str,
-        help="vLLM server host (overrides config and VLLM_SERVER_HOST env var)"
-    )
-    parser.add_argument(
-        "--vllm-port",
-        type=int,
-        help="vLLM server port (overrides config and VLLM_SERVER_PORT env var)"
-    )
     
     args = parser.parse_args()
     
@@ -98,11 +87,6 @@ def main():
         print(f"❌ Configuration file not found: {args.config}")
         sys.exit(1)
     
-    # Set environment variables from command line args if provided
-    if args.vllm_host:
-        os.environ["VLLM_SERVER_HOST"] = args.vllm_host
-    if args.vllm_port:
-        os.environ["VLLM_SERVER_PORT"] = str(args.vllm_port)
     
     try:
         config = UnifiedConfig.from_yaml(args.config)

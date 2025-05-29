@@ -14,12 +14,14 @@ class VLLMModelProvider(ModelProvider):
     
     def __init__(self, name: str, model_id: str, config: Dict[str, Any] = None):
         super().__init__(name, model_id, config)
-        # Allow environment variable override for server URL
-        default_host = config.get("vllm_host", "localhost")
-        default_port = config.get("vllm_port", 8000)
-        host = os.getenv("VLLM_SERVER_HOST", default_host)
-        port = int(os.getenv("VLLM_SERVER_PORT", str(default_port)))
-        self.base_url = f"http://{host}:{port}"
+        # Use vLLM URL from config - should always be provided by inference runner
+        if config and "vllm_url" in config:
+            self.base_url = config["vllm_url"]
+        else:
+            # Fallback for backwards compatibility
+            default_host = config.get("vllm_host", "localhost") if config else "localhost"
+            default_port = config.get("vllm_port", 8000) if config else 8000
+            self.base_url = f"http://{default_host}:{default_port}"
         self.endpoint = f"{self.base_url}/v1/chat/completions"
     
     def generate(self, prompt: str, system_prompt: str = None) -> str:
@@ -46,9 +48,27 @@ class VLLMModelProvider(ModelProvider):
         try:
             response = requests.post(self.endpoint, headers=headers, json=data, timeout=300)
             response.raise_for_status()
-            return response.json()["choices"][0]["message"]["content"]
+            response_data = response.json()
+            
+            if "choices" not in response_data or not response_data["choices"]:
+                raise RuntimeError(f"vLLM server returned empty response")
+                
+            return response_data["choices"][0]["message"]["content"]
+        except requests.exceptions.ConnectionError as e:
+            raise RuntimeError(f"Cannot connect to vLLM server at {self.base_url}: Connection refused. Make sure the server is running.")
+        except requests.exceptions.Timeout as e:
+            raise RuntimeError(f"vLLM request timed out after 300 seconds")
+        except requests.exceptions.HTTPError as e:
+            if response.status_code == 404:
+                raise RuntimeError(f"Model '{self.model_id}' not found on vLLM server. Check if the correct model is loaded.")
+            else:
+                raise RuntimeError(f"vLLM server returned HTTP {response.status_code}: {response.text}")
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"vLLM request failed: {e}")
+        except KeyError as e:
+            raise RuntimeError(f"Unexpected vLLM response format: missing {e}")
+        except Exception as e:
+            raise RuntimeError(f"vLLM generation failed: {e}")
     
     
     def is_available(self) -> bool:
@@ -57,9 +77,31 @@ class VLLMModelProvider(ModelProvider):
             health_url = f"{self.base_url}/health"
             response = requests.get(health_url, timeout=5)
             if response.status_code != 200:
-                raise RuntimeError(f"vLLM server health check failed: HTTP {response.status_code}")
+                print(f"❌ vLLM server health check failed: HTTP {response.status_code} at {health_url}")
+                return False
+                
+            # Also check if our specific model is available
+            models_url = f"{self.base_url}/v1/models"
+            models_response = requests.get(models_url, timeout=5)
+            if models_response.status_code == 200:
+                available_models = [m["id"] for m in models_response.json().get("data", [])]
+                if self.model_id not in available_models:
+                    print(f"❌ Model '{self.model_id}' not found on vLLM server. Available models: {', '.join(available_models)}")
+                    return False
+            else:
+                print(f"⚠️  Could not verify model availability: HTTP {models_response.status_code}")
+                
             return True
+        except requests.exceptions.ConnectionError as e:
+            print(f"❌ Cannot connect to vLLM server at {self.base_url}: Connection refused")
+            print(f"   Make sure the vLLM server is running and accessible")
+            return False
+        except requests.exceptions.Timeout as e:
+            print(f"❌ vLLM server at {self.base_url} timed out")
+            return False
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"Cannot reach vLLM server at {self.base_url}: {e}")
+            print(f"❌ vLLM server request failed: {e}")
+            return False
         except Exception as e:
-            raise RuntimeError(f"vLLM server availability check failed: {e}")
+            print(f"❌ vLLM server availability check failed: {e}")
+            return False

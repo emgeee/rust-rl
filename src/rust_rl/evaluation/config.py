@@ -61,11 +61,10 @@ class UnifiedConfig:
         with open(config_path, 'r') as f:
             config_data = yaml.safe_load(f)
         
-        # Parse server configuration
+        # Parse server configuration - only from config file
         server_data = config_data["server"]
-        # Allow environment variable override for server host
-        host = os.getenv("VLLM_SERVER_HOST", server_data.get("host", "localhost"))
-        port = int(os.getenv("VLLM_SERVER_PORT", server_data.get("port", 8000)))
+        host = server_data.get("host", "localhost")
+        port = server_data.get("port", 8000)
         
         server_config = ServerConfig(
             host=host,
@@ -113,6 +112,26 @@ class UnifiedConfig:
     def get_vllm_server_url(self) -> str:
         """Get vLLM server URL"""
         return f"http://{self.server.host}:{self.server.port}"
+    
+    def validate_vllm_config(self):
+        """Validate vLLM configuration"""
+        if not self.models_vllm:
+            return  # No vLLM models configured
+            
+        if not self.server:
+            raise ValueError("vLLM models configured but no server configuration found")
+            
+        # Validate server configuration
+        if not self.server.host or not self.server.port:
+            raise ValueError("vLLM server configuration missing host or port")
+            
+        # Validate model configurations
+        for model in self.models_vllm:
+            if not model.model:
+                raise ValueError(f"vLLM model configuration missing model ID: {model}")
+                
+        print(f"✅ vLLM configuration validated: {len(self.models_vllm)} models")
+        print(f"   📡 Server: {self.get_vllm_server_url()}")
 
 
 # Backward compatibility alias
