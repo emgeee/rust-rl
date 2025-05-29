@@ -9,7 +9,6 @@ This project uses Generative Reinforcement Learning from Policy Optimization (GR
 ## Repository Structure
 
 - **Main Scripts**:
-  - `start_vllm_server.py`: Unified vLLM server script (traditional or dynamic mode)
   - `run_evaluation.py`: Run complete evaluation pipeline (inference + evaluation + visualization)
   - `process_data.py`: Marimo notebook for data processing and analysis
   - `train_script.py`: Training script for GRPO fine-tuning
@@ -54,12 +53,7 @@ This starts the Marimo server with a headless configuration on port 2700 with th
 
 ### Evaluation Pipeline
 
-1. **Start vLLM Server** (if using vLLM models):
-   ```bash
-   python start_vllm_server.py --model "Qwen/Qwen2.5-Coder-7B-Instruct"
-   ```
-
-2. **Run Complete Evaluation Pipeline**:
+1. **Run Complete Evaluation Pipeline**:
    ```bash
    # Run full pipeline (inference + evaluation + visualization)
    python run_evaluation.py --all
@@ -77,14 +71,8 @@ This starts the Marimo server with a headless configuration on port 2700 with th
 
 **vLLM Server Management**
 ```bash
-# Start server with specific model
-python start_vllm_server.py --model "Qwen/Qwen2.5-Coder-7B-Instruct"
-
-# Check status
-python start_vllm_server.py --status
-
-# Stop server
-python start_vllm_server.py --stop
+# Start server with specific model using vLLM directly
+python -m vllm.entrypoints.openai.api_server --model "Qwen/Qwen2.5-Coder-7B-Instruct" --host 0.0.0.0 --port 8000
 ```
 
 ### Training Pipeline

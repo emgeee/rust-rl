@@ -309,8 +309,7 @@ class EvaluationOrchestrator:
             model_names = [m.name for m in vllm_models]
             raise RuntimeError(
                 f"vLLM server at {server_url} is not running but required for models: {', '.join(model_names)}\n"
-                f"Start server with: python start_vllm_server.py --model <model_id>\n"
-                f"Or set VLLM_SERVER_HOST environment variable to point to your remote server"
+                f"Start server manually or set VLLM_SERVER_HOST environment variable to point to your remote server"
             )
     
     def run_inference_stage(self, selected_models: List[str] = None, force_rerun: bool = False, batch_size: int = None):

@@ -35,7 +35,6 @@ RUN pip cache purge && \
 WORKDIR /app
 
 # Copy only essential server files
-COPY start_vllm_server.py ./
 COPY multi_model_eval_config.yaml ./
 COPY src/rust_rl/__init__.py ./src/rust_rl/__init__.py
 COPY src/rust_rl/evaluation/config.py ./src/rust_rl/evaluation/config.py
@@ -59,10 +58,10 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 RUN echo '#!/bin/bash\n\
 if nvidia-smi &> /dev/null && [ -n "$CUDA_VISIBLE_DEVICES" ] && [ "$CUDA_VISIBLE_DEVICES" != "" ]; then\n\
     echo "CUDA detected, using GPU backend"\n\
-    exec python start_vllm_server.py "$@"\n\
+    exec python -m vllm.entrypoints.openai.api_server --host 0.0.0.0 --port 8000 "$@"\n\
 else\n\
     echo "No CUDA detected or disabled, using CPU backend"\n\
-    exec python start_vllm_server.py --device cpu "$@"\n\
+    exec python -m vllm.entrypoints.openai.api_server --host 0.0.0.0 --port 8000 --device cpu "$@"\n\
 fi' > /app/start.sh && chmod +x /app/start.sh
 
 # Start the vLLM server with automatic device detection

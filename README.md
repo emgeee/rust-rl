@@ -7,7 +7,6 @@ The project also includes a comprehensive multi-model evaluation system for comp
 ## Project Structure
 
 - **Main Scripts**:
-  - `start_vllm_server.py`: Unified vLLM server script (traditional or dynamic mode)
   - `run_evaluation.py`: Run complete evaluation pipeline (inference + evaluation + visualization)
   - `process_data.py`: Marimo notebook for data processing and analysis
   - `train_script.py`: Training script for GRPO fine-tuning

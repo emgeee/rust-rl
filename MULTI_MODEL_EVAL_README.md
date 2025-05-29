@@ -25,9 +25,8 @@ Additional requirements for API models:
 - `XAI_API_KEY` environment variable for Grok
 - `GOOGLE_API_KEY` environment variable for Gemini models
 
-For vLLM models, you can either:
-- Use dynamic server mode (recommended): Models are automatically loaded on demand
-- Use traditional mode: Start vLLM server manually with specific model
+For vLLM models:
+- Start vLLM server manually with specific model using: `python -m vllm.entrypoints.openai.api_server`
 
 ## ⚙️ Configuration
 
@@ -43,10 +42,10 @@ Edit `multi_model_eval_config.yaml` to configure:
 
 ### Complete Pipeline
 
-**Dynamic Server Mode (Recommended)**
+**Standard Mode**
 ```bash
-# Run full pipeline with automatic model loading
-python run_evaluation.py --dynamic-server --all
+# Run full pipeline
+python run_evaluation.py --all
 
 # Run specific models with dynamic loading
 python run_evaluation.py --dynamic-server --all --models "claude-3-5-sonnet-20241022" "qwen-qwen2.5-coder-7b-instruct"

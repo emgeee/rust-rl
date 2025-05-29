@@ -1,6 +1,6 @@
-# Dynamic Model Server Usage
+# vLLM Server Usage
 
-The dynamic model server automatically loads vLLM models on demand rather than requiring them to be pre-specified at startup.
+Instructions for using vLLM server for model inference.
 
 ## Key Features
 
@@ -12,40 +12,33 @@ The dynamic model server automatically loads vLLM models on demand rather than r
 
 ## Usage
 
-### Option 1: Run Evaluation with Dynamic Server
+### Start vLLM Server Manually
 
-The simplest way is to use the `--dynamic-server` flag with the evaluation script:
+Start the vLLM server directly with the model you want to use:
 
 ```bash
-# Run full evaluation pipeline with automatic model loading
-python run_evaluation.py --dynamic-server --all
+# Start vLLM server with specific model
+python -m vllm.entrypoints.openai.api_server --model "Qwen/Qwen2.5-Coder-7B-Instruct" --host 0.0.0.0 --port 8000
 
-# Run inference only with dynamic loading
-python run_evaluation.py --dynamic-server --inference-only
-
-# Run specific models with dynamic loading
-python run_evaluation.py --dynamic-server --all --models "qwen-qwen2.5-coder-7b-instruct"
+# With additional options
+python -m vllm.entrypoints.openai.api_server \
+  --model "Qwen/Qwen2.5-Coder-7B-Instruct" \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --gpu-memory-utilization 0.8 \
+  --max-model-len 4096
 ```
 
-### Option 2: Start Dynamic Server Manually
+### Run Evaluation
 
-You can also start the dynamic server independently:
+Once the server is running, run the evaluation:
 
 ```bash
-# Start dynamic server (ready to load models on demand)
-python start_vllm_server.py --dynamic
+# Run full evaluation pipeline
+python run_evaluation.py --all
 
-# Start with interactive monitoring
-python start_vllm_server.py --dynamic --interactive
-
-# Check server status
-python start_vllm_server.py --status
-
-# List available models
-python start_vllm_server.py --list
-
-# Stop server
-python start_vllm_server.py --stop
+# Run specific models
+python run_evaluation.py --all --models "qwen-qwen2.5-coder-7b-instruct"
 ```
 
 ### Interactive Mode Commands
