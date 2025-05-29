@@ -66,7 +66,7 @@ class StatusHandler(BaseHTTPRequestHandler):
 class StatusServer:
     """Status server that runs alongside vLLM server"""
     
-    def __init__(self, dynamic_server: DynamicModelServer, port: int = 8001):
+    def __init__(self, dynamic_server: DynamicModelServer, port: int = 8000):
         self.dynamic_server = dynamic_server
         self.port = port
         self.server: Optional[HTTPServer] = None
